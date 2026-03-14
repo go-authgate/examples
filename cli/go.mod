@@ -2,7 +2,7 @@ module github.com/go-authgate/examples/cli
 
 go 1.25.8
 
-require github.com/go-authgate/sdk-go v0.3.1-0.20260314131944-28d4787c51bd
+require github.com/go-authgate/sdk-go v0.4.0
 
 require (
 	al.essio.dev/pkg/shellescape v1.6.0 // indirect
