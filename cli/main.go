@@ -54,7 +54,6 @@ func main() {
 	store := credstore.DefaultTokenSecureStore("authgate-cli", ".authgate-tokens.json")
 	ts := authflow.NewTokenSource(client,
 		authflow.WithStore(store),
-		authflow.WithClientID(clientID),
 	)
 
 	token, err := ts.Token(ctx)
