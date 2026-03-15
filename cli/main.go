@@ -91,7 +91,11 @@ func main() {
 func printTokenInfo(ctx context.Context, client *oauth.Client, token *oauth.Token) {
 	info, err := client.UserInfo(ctx, token.AccessToken)
 	if err != nil {
-		fmt.Printf("Token: %s...\n", token.AccessToken[:20])
+		display := token.AccessToken
+		if len(display) > 20 {
+			display = display[:20]
+		}
+		fmt.Printf("Token: %s...\n", display)
 		return
 	}
 

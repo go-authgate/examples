@@ -72,7 +72,11 @@ func main() {
 }
 
 func profileHandler(w http.ResponseWriter, r *http.Request) {
-	info, _ := middleware.TokenInfoFromContext(r.Context())
+	info, ok := middleware.TokenInfoFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
@@ -84,21 +88,21 @@ func profileHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func dataHandler(w http.ResponseWriter, r *http.Request) {
-	info, _ := middleware.TokenInfoFromContext(r.Context())
+	info, ok := middleware.TokenInfoFromContext(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
 
 	// Additional scope check within handler
+	msg := "You have read-only access"
 	if middleware.HasScope(r.Context(), "write") {
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]string{
-			"message": "You have read+write access",
-			"user":    info.UserID,
-		})
-		return
+		msg = "You have read+write access"
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]string{
-		"message": "You have read-only access",
+		"message": msg,
 		"user":    info.UserID,
 	})
 }
