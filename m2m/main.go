@@ -68,6 +68,10 @@ func main() {
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
+	const maxBodySize = 1 << 20 // 1 MB
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBodySize))
+	if err != nil {
+		log.Fatalf("Failed to read response body: %v", err)
+	}
 	fmt.Printf("Status: %d\nBody: %s\n", resp.StatusCode, body)
 }
