@@ -88,26 +88,29 @@ func main() {
 	printTokenInfo(ctx, client, token)
 }
 
+func maskToken(s string) string {
+	if len(s) <= 8 {
+		return "****"
+	}
+	return s[:8] + "..."
+}
+
 func printTokenInfo(ctx context.Context, client *oauth.Client, token *oauth.Token) {
 	info, err := client.UserInfo(ctx, token.AccessToken)
 	if err != nil {
-		display := token.AccessToken
-		if len(display) > 20 {
-			display = display[:20]
-		}
-		fmt.Printf("Token: %s...\n", display)
+		fmt.Printf("Token: %s (UserInfo error: %v)\n", maskToken(token.AccessToken), err)
 		return
 	}
 
 	fmt.Printf("User: %s (%s)\n", info.Name, info.Email)
 	fmt.Printf("Subject: %s\n", info.Sub)
-	fmt.Printf("Access Token: %s\n", token.AccessToken)
-	fmt.Printf("Refresh Token: %s\n", token.RefreshToken)
+	fmt.Printf("Access Token: %s\n", maskToken(token.AccessToken))
+	fmt.Printf("Refresh Token: %s\n", maskToken(token.RefreshToken))
 	fmt.Printf("Token Type: %s\n", token.TokenType)
 	fmt.Printf("Expires In: %d\n", token.ExpiresIn)
 	fmt.Printf("Expires At: %s\n", token.ExpiresAt)
 	fmt.Printf("Scope: %s\n", token.Scope)
-	fmt.Printf("ID Token: %s\n", token.IDToken)
+	fmt.Printf("ID Token: %s\n", maskToken(token.IDToken))
 
 	// Fetch token info for detailed scope and metadata
 	tokenInfo, err := client.TokenInfoRequest(ctx, token.AccessToken)
