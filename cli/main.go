@@ -98,7 +98,7 @@ func maskToken(s string) string {
 func printTokenInfo(ctx context.Context, client *oauth.Client, token *oauth.Token) {
 	info, err := client.UserInfo(ctx, token.AccessToken)
 	if err != nil {
-		fmt.Printf("Token: %s\n", maskToken(token.AccessToken))
+		fmt.Printf("Token: %s (UserInfo error: %v)\n", maskToken(token.AccessToken), err)
 		return
 	}
 

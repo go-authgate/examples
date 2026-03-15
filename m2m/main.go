@@ -69,9 +69,17 @@ func main() {
 	defer resp.Body.Close()
 
 	const maxBodySize = 1 << 20 // 1 MB
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBodySize))
+	lr := io.LimitReader(resp.Body, maxBodySize+1)
+	body, err := io.ReadAll(lr)
 	if err != nil {
 		log.Fatalf("Failed to read response body: %v", err)
 	}
+	truncated := len(body) > maxBodySize
+	if truncated {
+		body = body[:maxBodySize]
+	}
 	fmt.Printf("Status: %d\nBody: %s\n", resp.StatusCode, body)
+	if truncated {
+		fmt.Println("(response body truncated to 1 MB)")
+	}
 }
