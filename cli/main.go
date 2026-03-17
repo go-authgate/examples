@@ -17,74 +17,21 @@ import (
 	"log"
 	"os"
 
-	"github.com/go-authgate/sdk-go/authflow"
-	"github.com/go-authgate/sdk-go/credstore"
-	"github.com/go-authgate/sdk-go/discovery"
+	authgate "github.com/go-authgate/sdk-go"
 	"github.com/go-authgate/sdk-go/oauth"
 )
 
 func main() {
-	authgateURL := os.Getenv("AUTHGATE_URL")
-	clientID := os.Getenv("CLIENT_ID")
-
-	if authgateURL == "" || clientID == "" {
-		log.Fatal("Set AUTHGATE_URL, CLIENT_ID")
-	}
-
 	ctx := context.Background()
-	scopes := []string{"profile", "email"}
-
-	// 1. Auto-discover endpoints
-	disco, err := discovery.NewClient(authgateURL)
-	if err != nil {
-		log.Fatal(err)
-	}
-	meta, err := disco.Fetch(ctx)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// 2. Create OAuth client
-	client, err := oauth.NewClient(clientID, meta.Endpoints())
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// 3. Try loading cached token first
-	store := credstore.DefaultTokenSecureStore("authgate-cli", ".authgate-tokens.json")
-	ts := authflow.NewTokenSource(client,
-		authflow.WithStore(store),
+	client, token, err := authgate.New(ctx,
+		os.Getenv("AUTHGATE_URL"),
+		os.Getenv("CLIENT_ID"),
+		authgate.WithScopes("profile", "email"),
+		authgate.WithFlowMode(authgate.FlowModeDevice),
 	)
-
-	token, err := ts.Token(ctx)
-	if err == nil {
-		fmt.Println("Using cached token")
-		printTokenInfo(ctx, client, token)
-		return
-	}
-
-	// 4. No cached token — authenticate
-	if authflow.CheckBrowserAvailability() {
-		fmt.Println("Opening browser for authentication...")
-		token, err = authflow.RunAuthCodeFlow(ctx, client, scopes,
-			authflow.WithLocalPort(8088),
-		)
-	} else {
-		fmt.Println("No browser detected, using device code flow...")
-		token, err = authflow.RunDeviceFlow(ctx, client, scopes,
-			authflow.WithOpenBrowser(false),
-		)
-	}
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	// 5. Save token for next time
-	if saveErr := ts.SaveToken(token); saveErr != nil {
-		log.Printf("Warning: failed to save token: %v", saveErr)
-	}
-
-	fmt.Println("Authentication successful!")
 	printTokenInfo(ctx, client, token)
 }
 
