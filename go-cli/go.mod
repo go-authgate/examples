@@ -1,4 +1,4 @@
-module github.com/go-authgate/examples/cli
+module github.com/go-authgate/examples/go-cli
 
 go 1.25.8
 

@@ -1,4 +1,4 @@
-module github.com/go-authgate/examples/webservice
+module github.com/go-authgate/examples/go-webservice
 
 go 1.25.8
 

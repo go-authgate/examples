@@ -1,4 +1,4 @@
-module github.com/go-authgate/examples/m2m
+module github.com/go-authgate/examples/go-m2m
 
 go 1.25.8
 

@@ -19,7 +19,7 @@ export CLIENT_SECRET=your-client-secret  # only for M2M
 Auto-detects browser availability: uses Auth Code + PKCE on local machines, falls back to Device Code in SSH sessions. Tokens are cached in OS keyring.
 
 ```bash
-cd cli
+cd go-cli
 go run main.go
 ```
 
@@ -28,7 +28,7 @@ go run main.go
 Protects HTTP endpoints with Bearer token middleware. Works with any Go HTTP framework.
 
 ```bash
-cd webservice
+cd go-webservice
 go run main.go
 
 # Test
@@ -41,6 +41,6 @@ curl -H "Authorization: Bearer <token>" http://localhost:8080/api/data
 Uses Client Credentials grant with auto-caching. No user interaction needed.
 
 ```bash
-cd m2m
+cd go-m2m
 go run main.go
 ```
