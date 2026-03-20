@@ -40,7 +40,7 @@ def print_token_info(client, token):
     print(f"ID Token: {mask_token(token.id_token)}")
 
     try:
-        token_info = client.token_info(token.access_token)
+        token_info = client.token_info_request(token.access_token)
     except Exception as e:
         print(f"TokenInfo error: {e}")
         return
@@ -70,6 +70,22 @@ def main():
         client_id,
         scopes=["profile", "email"],
     )
+
+    # If the cached token is revoked/expired server-side, clear it and re-authenticate.
+    try:
+        client.userinfo(token.access_token)
+    except Exception:
+        print("Cached token is invalid, re-authenticating...")
+        from authgate.credstore import default_token_secure_store
+
+        store = default_token_secure_store("authgate", ".authgate-tokens.json")
+        store.delete(client_id)
+        client, token = authgate.authenticate(
+            authgate_url,
+            client_id,
+            scopes=["profile", "email"],
+        )
+
     print_token_info(client, token)
 
 
