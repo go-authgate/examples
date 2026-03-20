@@ -27,7 +27,6 @@ func main() {
 		os.Getenv("AUTHGATE_URL"),
 		os.Getenv("CLIENT_ID"),
 		authgate.WithScopes("profile", "email"),
-		authgate.WithFlowMode(authgate.FlowModeDevice),
 	)
 	if err != nil {
 		log.Fatal(err)
