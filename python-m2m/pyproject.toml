@@ -1,0 +1,5 @@
+[project]
+name = "python-m2m"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = ["go-authgate==0.2.2"]
