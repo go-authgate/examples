@@ -7,7 +7,7 @@
 # Usage:
 #
 #   export AUTHGATE_URL=https://auth.example.com
-#   export AUTHGATE_CLIENT_ID=your-client-id
+#   export CLIENT_ID=your-client-id
 #   uv run python main.py
 
 import os
@@ -56,11 +56,11 @@ def print_token_info(client, token):
 
 def main():
     authgate_url = os.getenv("AUTHGATE_URL")
-    client_id = os.getenv("AUTHGATE_CLIENT_ID")
+    client_id = os.getenv("CLIENT_ID")
 
     if not authgate_url or not client_id:
         print(
-            "Error: AUTHGATE_URL and AUTHGATE_CLIENT_ID environment variables are required",
+            "Error: AUTHGATE_URL and CLIENT_ID environment variables are required",
             file=sys.stderr,
         )
         sys.exit(1)
