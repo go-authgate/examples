@@ -36,6 +36,15 @@ curl -H "Authorization: Bearer <token>" http://localhost:8080/api/profile
 curl -H "Authorization: Bearer <token>" http://localhost:8080/api/data
 ```
 
+### Bash CLI — Device Code Authentication
+
+Uses the Device Authorization Grant (RFC 8628) with only `curl` and `jq`. No SDK or runtime required.
+
+```bash
+cd bash-cli
+bash main.sh
+```
+
 ### M2M — Service-to-Service Authentication
 
 Uses Client Credentials grant with auto-caching. No user interaction needed.
