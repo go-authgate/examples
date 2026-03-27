@@ -138,10 +138,10 @@ discover_endpoints() {
 
   local fields
   fields=$(echo "$HTTP_BODY" | jq -r '[
-    .issuer // empty,
-    .token_endpoint // empty,
-    .userinfo_endpoint // empty,
-    .device_authorization_endpoint // empty
+    .issuer // "",
+    .token_endpoint // "",
+    .userinfo_endpoint // "",
+    .device_authorization_endpoint // ""
   ] | join("\n")') || die "Failed to parse discovery response"
 
   local issuer
@@ -185,12 +185,12 @@ load_cached_token() {
 
   local fields
   fields=$(echo "$token_json" | jq -r '[
-    .access_token // empty,
-    .refresh_token // empty,
-    .token_type // empty,
-    .expires_at // empty,
-    .scope // empty,
-    .id_token // empty,
+    .access_token // "",
+    .refresh_token // "",
+    .token_type // "",
+    .expires_at // "",
+    .scope // "",
+    .id_token // "",
     (.expires_in // 0 | tostring)
   ] | join("\n")') || return 1
 
@@ -317,10 +317,10 @@ request_device_code() {
 
   local fields
   if ! fields=$(echo "$HTTP_BODY" | jq -r '[
-    .device_code,
-    .user_code,
-    .verification_uri,
-    .verification_uri_complete // empty,
+    .device_code // "",
+    .user_code // "",
+    .verification_uri // "",
+    .verification_uri_complete // "",
     (.expires_in // 300 | tostring),
     (.interval // 5 | tostring)
   ] | join("\n")' 2>/dev/null); then
@@ -403,12 +403,12 @@ parse_token_response() {
 
   local fields
   if ! fields=$(echo "$body" | jq -r '[
-    .access_token // empty,
-    .token_type // empty,
+    .access_token // "",
+    .token_type // "",
     (.expires_in // 0 | tostring),
-    .scope // empty,
-    .id_token // empty,
-    .refresh_token // empty
+    .scope // "",
+    .id_token // "",
+    .refresh_token // ""
   ] | join("\n")' 2>/dev/null); then
     die "Failed to parse token response (invalid or non-JSON body; HTTP $HTTP_STATUS)"
   fi
@@ -446,9 +446,9 @@ fetch_userinfo() {
 
   local fields
   fields=$(echo "$HTTP_BODY" | jq -r '[
-    .name // empty,
-    .email // empty,
-    .sub // empty
+    .name // "",
+    .email // "",
+    .sub // ""
   ] | join("\n")')
 
   {
@@ -468,13 +468,13 @@ fetch_tokeninfo() {
 
   local fields
   fields=$(echo "$HTTP_BODY" | jq -r '[
-    (.active // empty | tostring),
-    .user_id // empty,
-    .client_id // empty,
-    .scope // empty,
-    .subject_type // empty,
-    .iss // empty,
-    (.exp // empty | tostring)
+    (.active // "" | tostring),
+    .user_id // "",
+    .client_id // "",
+    .scope // "",
+    .subject_type // "",
+    .iss // "",
+    (.exp // "" | tostring)
   ] | join("\n")')
 
   {
