@@ -6,20 +6,21 @@
 #
 # Prerequisites: curl, jq
 #
-# Usage:
+# Usage (from the bash-cli/ directory):
 #
+#   cd bash-cli
 #   cp .env.example .env
 #   # edit .env with your values
 #   bash main.sh
 #
-#   # or export directly:
+#   # or export directly (still from bash-cli/ as the current directory):
 #   export AUTHGATE_URL=https://auth.example.com
 #   export CLIENT_ID=your-client-id
 #   bash main.sh
 
 set -euo pipefail
 
-# --- Load .env file safely if present ---
+# --- Load .env file safely from the current working directory if present ---
 load_dotenv() {
   local dotenv_file=".env"
   [[ -f "$dotenv_file" ]] || return 0
