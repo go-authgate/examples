@@ -240,14 +240,22 @@ save_cached_token() {
 
   local tmp
   tmp=$(mktemp "${TOKEN_CACHE_FILE}.XXXXXX")
-  # shellcheck disable=SC2064
-  trap "rm -f '$tmp'" RETURN
 
-  echo "$existing" | jq --arg cid "$CLIENT_ID" --argjson val "$encoded" \
-    '.data[$cid] = $val' > "$tmp"
+  if ! echo "$existing" | jq --arg cid "$CLIENT_ID" --argjson val "$encoded" \
+    '.data[$cid] = $val' > "$tmp"; then
+    rm -f "$tmp"
+    return 1
+  fi
 
-  chmod 600 "$tmp"
-  mv "$tmp" "$TOKEN_CACHE_FILE"
+  if ! chmod 600 "$tmp"; then
+    rm -f "$tmp"
+    return 1
+  fi
+
+  if ! mv "$tmp" "$TOKEN_CACHE_FILE"; then
+    rm -f "$tmp"
+    return 1
+  fi
 }
 
 delete_cached_token() {
@@ -298,6 +306,9 @@ request_device_code() {
   local data="client_id=$(urlencode "$CLIENT_ID")&scope=$(urlencode "$SCOPE")"
   http_post "$DEVICE_AUTH_ENDPOINT" "$data"
 
+  if [ "$HTTP_STATUS" = "000" ]; then
+    die "Cannot connect to ${DEVICE_AUTH_ENDPOINT} — is the server running?"
+  fi
   if [ "$HTTP_STATUS" != "200" ]; then
     local err_desc
     err_desc=$(echo "$HTTP_BODY" | jq -r '.error_description // .error // "unknown error"' 2>/dev/null) || err_desc="unknown error"
@@ -352,6 +363,11 @@ poll_for_token() {
       return 0
     fi
 
+    if [ "$HTTP_STATUS" = "000" ]; then
+      echo "" >&2
+      die "Connection error while polling for token — is the server running?"
+    fi
+
     local error_code
     error_code=$(echo "$HTTP_BODY" | jq -r '.error // "unknown"' 2>/dev/null) || error_code="unknown"
 
@@ -386,14 +402,16 @@ parse_token_response() {
   local old_refresh="$REFRESH_TOKEN"
 
   local fields
-  fields=$(echo "$body" | jq -r '[
+  if ! fields=$(echo "$body" | jq -r '[
     .access_token // empty,
     .token_type // empty,
     (.expires_in // 0 | tostring),
     .scope // empty,
     .id_token // empty,
     .refresh_token // empty
-  ] | join("\n")')
+  ] | join("\n")' 2>/dev/null); then
+    die "Failed to parse token response (invalid or non-JSON body; HTTP $HTTP_STATUS)"
+  fi
 
   local new_refresh
   {
@@ -480,6 +498,8 @@ print_token_info() {
   if [ -n "${USER_SUB:-}" ]; then
     echo "User: ${USER_NAME} (${USER_EMAIL})"
     echo "Subject: ${USER_SUB}"
+  elif [ -z "$USERINFO_ENDPOINT" ]; then
+    echo "Token: $(mask_token "$ACCESS_TOKEN") (UserInfo not available)"
   else
     echo "Token: $(mask_token "$ACCESS_TOKEN") (UserInfo error: HTTP $HTTP_STATUS)"
   fi
