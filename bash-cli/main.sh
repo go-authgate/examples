@@ -32,10 +32,12 @@ EXPIRES_AT=""
 TOKEN_SCOPE=""
 ID_TOKEN=""
 
-# Detect platform date flavor once at startup
-DATE_FLAVOR="gnu"
-if date -u -r 0 +%s >/dev/null 2>&1; then
-  DATE_FLAVOR="bsd"
+# Detect platform date flavor once at startup.
+# Probe GNU-style (-d "@0") first to avoid ambiguity with BSD -r 0
+# (which can match a file named "0" in CWD).
+DATE_FLAVOR="bsd"
+if date -u -d "@0" +%s >/dev/null 2>&1; then
+  DATE_FLAVOR="gnu"
 fi
 
 # --- Utilities ---
@@ -106,9 +108,9 @@ http_get() {
 
   local response
   if [ -n "$config" ]; then
-    response=$(printf '%s' "$config" | curl -s -w "\n%{http_code}" --config - "$url") || true
+    response=$(printf '%s' "$config" | curl -s --connect-timeout 10 --max-time 30 -w "\n%{http_code}" --config - "$url") || true
   else
-    response=$(curl -s -w "\n%{http_code}" "$url") || true
+    response=$(curl -s --connect-timeout 10 --max-time 30 -w "\n%{http_code}" "$url") || true
   fi
 
   _parse_response "$response"
@@ -120,7 +122,7 @@ http_post() {
   local data="$2"
 
   local response
-  response=$(printf '%s' "$data" | curl -s -w "\n%{http_code}" \
+  response=$(printf '%s' "$data" | curl -s --connect-timeout 10 --max-time 30 -w "\n%{http_code}" \
     -X POST \
     -H "Content-Type: application/x-www-form-urlencoded" \
     --data-binary @- \
@@ -143,7 +145,7 @@ discover_endpoints() {
   fi
 
   local fields
-  fields=$(echo "$HTTP_BODY" | jq -r '[
+  fields=$(printf '%s' "$HTTP_BODY" | jq -r '[
     .issuer // "",
     .token_endpoint // "",
     .userinfo_endpoint // "",
@@ -187,10 +189,10 @@ load_cached_token() {
 
   # The value is a JSON string (double-encoded by Go/Python SDKs)
   local token_json
-  token_json=$(echo "$entry" | jq -r 'fromjson? // .' 2>/dev/null) || return 1
+  token_json=$(printf '%s' "$entry" | jq -r 'fromjson? // .' 2>/dev/null) || return 1
 
   local fields
-  fields=$(echo "$token_json" | jq -r '[
+  fields=$(printf '%s' "$token_json" | jq -r '[
     .access_token // "",
     .refresh_token // "",
     .token_type // "",
@@ -238,7 +240,7 @@ save_cached_token() {
 
   # Double-encode as JSON string (matching Go/Python SDK format)
   local encoded
-  encoded=$(echo "$token_obj" | jq -Rs '.')
+  encoded=$(printf '%s' "$token_obj" | jq -Rs '.')
 
   # Treat missing or corrupted cache as empty; fall back to {}
   local existing
@@ -247,7 +249,7 @@ save_cached_token() {
   local tmp
   tmp=$(mktemp "${TOKEN_CACHE_FILE}.XXXXXX")
 
-  if ! echo "$existing" | jq --arg cid "$CLIENT_ID" --argjson val "$encoded" \
+  if ! printf '%s' "$existing" | jq --arg cid "$CLIENT_ID" --argjson val "$encoded" \
     '.data[$cid] = $val' > "$tmp"; then
     rm -f "$tmp"
     return 1
@@ -323,12 +325,12 @@ request_device_code() {
   fi
   if [ "$HTTP_STATUS" != "200" ]; then
     local err_desc
-    err_desc=$(echo "$HTTP_BODY" | jq -r '.error_description // .error // "unknown error"' 2>/dev/null) || err_desc="unknown error"
+    err_desc=$(printf '%s' "$HTTP_BODY" | jq -r '.error_description // .error // "unknown error"' 2>/dev/null) || err_desc="unknown error"
     die "Device code request failed (HTTP $HTTP_STATUS): $err_desc"
   fi
 
   local fields
-  if ! fields=$(echo "$HTTP_BODY" | jq -r '[
+  if ! fields=$(printf '%s' "$HTTP_BODY" | jq -r '[
     .device_code // "",
     .user_code // "",
     .verification_uri // "",
@@ -381,7 +383,7 @@ poll_for_token() {
     fi
 
     local error_code
-    error_code=$(echo "$HTTP_BODY" | jq -r '.error // "unknown"' 2>/dev/null) || error_code="unknown"
+    error_code=$(printf '%s' "$HTTP_BODY" | jq -r '.error // "unknown"' 2>/dev/null) || error_code="unknown"
 
     case "$error_code" in
       authorization_pending)
@@ -402,7 +404,7 @@ poll_for_token() {
       *)
         echo "" >&2
         local err_desc
-        err_desc=$(echo "$HTTP_BODY" | jq -r '.error_description // empty' 2>/dev/null) || err_desc=""
+        err_desc=$(printf '%s' "$HTTP_BODY" | jq -r '.error_description // empty' 2>/dev/null) || err_desc=""
         die "Token request failed: $error_code${err_desc:+ - $err_desc}"
         ;;
     esac
@@ -416,7 +418,7 @@ parse_token_response() {
   local old_id_token="$ID_TOKEN"
 
   local fields
-  if ! fields=$(echo "$body" | jq -r '[
+  if ! fields=$(printf '%s' "$body" | jq -r '[
     .access_token // "",
     .token_type // "",
     (.expires_in // 0 | tostring),
@@ -462,7 +464,7 @@ fetch_userinfo() {
   fi
 
   local fields
-  fields=$(echo "$HTTP_BODY" | jq -r '[
+  fields=$(printf '%s' "$HTTP_BODY" | jq -r '[
     .name // "",
     .email // "",
     .sub // ""
@@ -484,7 +486,7 @@ fetch_tokeninfo() {
   fi
 
   local fields
-  fields=$(echo "$HTTP_BODY" | jq -r '[
+  fields=$(printf '%s' "$HTTP_BODY" | jq -r '[
     (.active // "" | tostring),
     .user_id // "",
     .client_id // "",
@@ -594,13 +596,15 @@ main() {
   if [ -n "$USERINFO_ENDPOINT" ]; then
     if ! fetch_userinfo; then
       echo "Cached token is invalid, re-authenticating..."
-      delete_cached_token
+      delete_cached_token || echo "Warning: Failed to delete cached token; continuing with re-auth." >&2
       run_device_flow
       fetch_userinfo || true
     fi
   fi
 
-  save_cached_token
+  if ! save_cached_token; then
+    echo "Warning: Failed to save token cache to ${TOKEN_CACHE_FILE}" >&2
+  fi
   print_token_info
 }
 
