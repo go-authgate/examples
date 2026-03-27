@@ -95,8 +95,11 @@ http_get() {
   shift
   local config=""
   for h in "$@"; do
+    # Strip CR/LF to prevent curl config injection via newlines
+    local clean_h="${h//$'\r'/}"
+    clean_h="${clean_h//$'\n'/}"
     # Escape backslashes and double-quotes to prevent curl config injection
-    local escaped_h="${h//\\/\\\\}"
+    local escaped_h="${clean_h//\\/\\\\}"
     escaped_h="${escaped_h//\"/\\\"}"
     config+="header = \"${escaped_h}\""$'\n'
   done
@@ -500,7 +503,11 @@ fetch_tokeninfo() {
 print_token_info() {
   local expires_at_display=""
   if [ -n "$EXPIRES_AT" ]; then
-    expires_at_display=$(epoch_to_rfc3339 "$EXPIRES_AT")
+    if [[ "$EXPIRES_AT" =~ ^[0-9]+$ ]]; then
+      expires_at_display=$(epoch_to_rfc3339 "$EXPIRES_AT")
+    else
+      expires_at_display="$EXPIRES_AT"
+    fi
   fi
 
   if [ -n "${USER_SUB:-}" ]; then
