@@ -250,6 +250,15 @@ save_cached_token() {
   local encoded
   encoded=$(printf '%s' "$token_obj" | jq -Rs '.')
 
+  # If the cache file already exists, refuse to operate on a symlink or
+  # a file not owned by the current user to prevent credential clobbering.
+  if [ -e "$TOKEN_CACHE_FILE" ]; then
+    if [ -L "$TOKEN_CACHE_FILE" ] || [ ! -O "$TOKEN_CACHE_FILE" ]; then
+      echo "Warning: Refusing to write token cache file that is a symlink or not owned by the current user: $TOKEN_CACHE_FILE" >&2
+      return 1
+    fi
+  fi
+
   # Treat missing or corrupted cache as empty; fall back to {}
   local existing
   existing=$(jq '.' "$TOKEN_CACHE_FILE" 2>/dev/null || echo '{}')
@@ -276,6 +285,12 @@ save_cached_token() {
 
 delete_cached_token() {
   [ -f "$TOKEN_CACHE_FILE" ] || return 0
+
+  # Refuse to operate on a symlink or a file not owned by the current user
+  if [ -L "$TOKEN_CACHE_FILE" ] || [ ! -O "$TOKEN_CACHE_FILE" ]; then
+    echo "Warning: Refusing to delete token cache file that is a symlink or not owned by the current user: $TOKEN_CACHE_FILE" >&2
+    return 0
+  fi
 
   local tmp
   tmp=$(mktemp "${TOKEN_CACHE_FILE}.XXXXXX")
@@ -599,14 +614,18 @@ main() {
     run_device_flow
   fi
 
-  # Validate token with userinfo; re-auth if server-side invalid.
+  # Validate token with userinfo; re-auth only on 401/403 (token invalid/expired).
   # Skip if userinfo_endpoint was not advertised by the server.
   if [ -n "$USERINFO_ENDPOINT" ]; then
     if ! fetch_userinfo; then
-      echo "Cached token is invalid, re-authenticating..."
-      delete_cached_token || echo "Warning: Failed to delete cached token; continuing with re-auth." >&2
-      run_device_flow
-      fetch_userinfo || true
+      if [ "$HTTP_STATUS" = "401" ] || [ "$HTTP_STATUS" = "403" ]; then
+        echo "Cached token is invalid, re-authenticating..."
+        delete_cached_token || echo "Warning: Failed to delete cached token; continuing with re-auth." >&2
+        run_device_flow
+        fetch_userinfo || true
+      else
+        echo "Warning: UserInfo request failed (HTTP $HTTP_STATUS); proceeding with cached token." >&2
+      fi
     fi
   fi
 
