@@ -8,11 +8,11 @@
 #
 # Usage:
 #
-#   # Option 1 — use a .env file in bash-cli/ (must run from that directory):
+#   # Option 1 — use a .env file (must run from the directory containing .env):
 #   cd bash-cli
 #   cp .env.example .env
 #   # edit .env with your values
-#   bash main.sh
+#   bash main.sh   # .env is loaded from the current working directory
 #
 #   # Option 2 — export variables directly (can run from any directory):
 #   export AUTHGATE_URL=https://auth.example.com
@@ -46,9 +46,13 @@ load_dotenv() {
     key="${line%%=*}"
     value="${line#*=}"
 
-    # Only set variables not already defined in the environment
+    # Only set variables not already defined in the environment.
+    # This guard also prevents overwriting shell internals (PATH, IFS, etc.)
+    # since they are always present in the environment.
     if [[ -z "${!key+x}" ]]; then
-      export "$key=$value"
+      if ! export "$key=$value"; then
+        echo "Warning: $dotenv_file line $lineno: failed to export '$key' (skipping)" >&2
+      fi
     fi
   done < "$dotenv_file"
 }
