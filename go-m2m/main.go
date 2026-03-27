@@ -56,7 +56,7 @@ func main() {
 
 	// 3. Create auto-refreshing token source
 	ts := clientcreds.NewTokenSource(client,
-		clientcreds.WithScopes("email", "profile"),
+		clientcreds.WithScopes("profile", "email"),
 		clientcreds.WithExpiryDelta(30*time.Second),
 	)
 
