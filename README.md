@@ -1,6 +1,6 @@
 # AuthGate Examples
 
-Usage examples for the AuthGate Go SDK.
+Multi-language usage examples for AuthGate authentication (Go, Python, Bash).
 
 ## Prerequisites
 
