@@ -50,12 +50,18 @@ def main():
     with httpx.Client(auth=auth) as http:
         with http.stream("GET", f"{authgate_url}/oauth/userinfo") as resp:
             status_code = resp.status_code
-            body = b""
+            body_bytes = bytearray()
             for chunk in resp.iter_bytes():
-                body += chunk
-                if len(body) >= MAX_BODY_SIZE + 1:
-                    body = body[: MAX_BODY_SIZE + 1]
+                if not chunk:
+                    continue
+                remaining = (MAX_BODY_SIZE + 1) - len(body_bytes)
+                if remaining <= 0:
                     break
+                if len(chunk) > remaining:
+                    body_bytes.extend(chunk[:remaining])
+                    break
+                body_bytes.extend(chunk)
+            body = bytes(body_bytes)
 
     truncated = len(body) > MAX_BODY_SIZE
     if truncated:
