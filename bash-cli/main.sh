@@ -449,7 +449,7 @@ fetch_userinfo() {
     .name // "",
     .email // "",
     .sub // ""
-  ] | join("\n")')
+  ] | join("\n")') || return 1
 
   {
     IFS= read -r USER_NAME
@@ -475,7 +475,7 @@ fetch_tokeninfo() {
     .subject_type // "",
     .iss // "",
     (.exp // "" | tostring)
-  ] | join("\n")')
+  ] | join("\n")') || return 1
 
   {
     IFS= read -r TI_ACTIVE
