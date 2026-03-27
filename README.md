@@ -45,6 +45,26 @@ cd bash-cli
 bash main.sh
 ```
 
+### Python CLI — Device Code Authentication
+
+Uses the Device Authorization Grant with the AuthGate Python SDK. Tokens are cached to `~/.authgate-tokens.json`.
+
+```bash
+cd python-cli
+pip install -r requirements.txt
+python main.py
+```
+
+### Python M2M — Service-to-Service Authentication
+
+Uses the Client Credentials grant with the AuthGate Python SDK.
+
+```bash
+cd python-m2m
+pip install -r requirements.txt
+python main.py
+```
+
 ### M2M — Service-to-Service Authentication
 
 Uses Client Credentials grant with auto-caching. No user interaction needed.
