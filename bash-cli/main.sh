@@ -8,11 +8,24 @@
 #
 # Usage:
 #
+#   cp .env.example .env
+#   # edit .env with your values
+#   bash main.sh
+#
+#   # or export directly:
 #   export AUTHGATE_URL=https://auth.example.com
 #   export CLIENT_ID=your-client-id
 #   bash main.sh
 
 set -euo pipefail
+
+# --- Load .env file if present ---
+if [[ -f ".env" ]]; then
+  set -o allexport
+  # shellcheck source=/dev/null
+  source ".env"
+  set +o allexport
+fi
 
 # --- Configuration ---
 SCOPE="profile email"
