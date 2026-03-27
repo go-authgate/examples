@@ -108,9 +108,9 @@ http_get() {
 
   local response
   if [ -n "$config" ]; then
-    response=$(printf '%s' "$config" | curl -s --connect-timeout 10 --max-time 30 -w "\n%{http_code}" --config - "$url") || true
+    response=$(printf '%s' "$config" | curl -s --connect-timeout 10 --max-time 30 -w "\n%{http_code}" --config - -- "$url") || true
   else
-    response=$(curl -s --connect-timeout 10 --max-time 30 -w "\n%{http_code}" "$url") || true
+    response=$(curl -s --connect-timeout 10 --max-time 30 -w "\n%{http_code}" -- "$url") || true
   fi
 
   _parse_response "$response"
@@ -126,7 +126,7 @@ http_post() {
     -X POST \
     -H "Content-Type: application/x-www-form-urlencoded" \
     --data-binary @- \
-    "$url") || true
+    -- "$url") || true
 
   _parse_response "$response"
 }
@@ -181,6 +181,14 @@ discover_endpoints() {
 
 load_cached_token() {
   [ -f "$TOKEN_CACHE_FILE" ] || return 1
+
+  # Refuse to operate on a symlink or a file not owned by the current user
+  # to avoid following attacker-controlled links to credential files.
+  if [ -L "$TOKEN_CACHE_FILE" ] || [ ! -O "$TOKEN_CACHE_FILE" ]; then
+    echo "Warning: Refusing to use token cache file that is a symlink or not owned by the current user: $TOKEN_CACHE_FILE" >&2
+    return 1
+  fi
+
   chmod 600 "$TOKEN_CACHE_FILE" 2>/dev/null || true
 
   local entry
