@@ -1,6 +1,6 @@
 # AuthGate Examples
 
-Usage examples for the AuthGate Go SDK.
+Multi-language usage examples for AuthGate authentication (Go, Python, Bash).
 
 ## Prerequisites
 
@@ -34,6 +34,33 @@ go run main.go
 # Test
 curl -H "Authorization: Bearer <token>" http://localhost:8080/api/profile
 curl -H "Authorization: Bearer <token>" http://localhost:8080/api/data
+```
+
+### Bash CLI — Device Code Authentication
+
+Uses the Device Authorization Grant (RFC 8628) with only `curl` and `jq`. No SDK or runtime required.
+
+```bash
+cd bash-cli
+bash main.sh
+```
+
+### Python CLI — Device Code Authentication
+
+Uses the Device Authorization Grant with the AuthGate Python SDK. Tokens are stored in the OS keyring when available, with a fallback cache file at `~/.authgate-tokens.json`.
+
+```bash
+cd python-cli
+uv run python main.py
+```
+
+### Python M2M — Service-to-Service Authentication
+
+Uses the Client Credentials grant with the AuthGate Python SDK.
+
+```bash
+cd python-m2m
+uv run python main.py
 ```
 
 ### M2M — Service-to-Service Authentication
