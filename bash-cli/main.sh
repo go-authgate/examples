@@ -270,8 +270,14 @@ delete_cached_token() {
   local tmp
   tmp=$(mktemp "${TOKEN_CACHE_FILE}.XXXXXX")
   jq --arg cid "$CLIENT_ID" 'del(.data[$cid])' "$TOKEN_CACHE_FILE" > "$tmp" 2>/dev/null || { rm -f "$tmp"; return 0; }
-  chmod 600 "$tmp"
-  mv "$tmp" "$TOKEN_CACHE_FILE"
+  if ! chmod 600 "$tmp"; then
+    rm -f "$tmp"
+    return 1
+  fi
+  if ! mv "$tmp" "$TOKEN_CACHE_FILE"; then
+    rm -f "$tmp"
+    return 1
+  fi
 }
 
 is_token_expired() {
