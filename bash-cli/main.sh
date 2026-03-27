@@ -34,6 +34,7 @@ load_dotenv() {
 
     # Require KEY=VALUE format with a safe key name
     if [[ ! "$line" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; then
+      echo "Warning: skipped malformed .env line: $line" >&2
       continue
     fi
 
@@ -41,12 +42,10 @@ load_dotenv() {
     key="${line%%=*}"
     value="${line#*=}"
 
-    # Reject values containing characters used for code execution
-    if [[ "$value" =~ ['`$()|\&;<>'] ]]; then
-      continue
+    # Only set variables not already defined in the environment
+    if [[ -z "${!key+x}" ]]; then
+      export "$key=$value"
     fi
-
-    export "$key=$value"
   done < "$dotenv_file"
 }
 
