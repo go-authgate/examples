@@ -6,17 +6,18 @@
 #
 # Prerequisites: curl, jq
 #
-# Usage (from the bash-cli/ directory):
+# Usage:
 #
+#   # Option 1 — use a .env file in bash-cli/ (must run from that directory):
 #   cd bash-cli
 #   cp .env.example .env
 #   # edit .env with your values
 #   bash main.sh
 #
-#   # or export directly (still from bash-cli/ as the current directory):
+#   # Option 2 — export variables directly (can run from any directory):
 #   export AUTHGATE_URL=https://auth.example.com
 #   export CLIENT_ID=your-client-id
-#   bash main.sh
+#   bash main.sh        # or: bash bash-cli/main.sh from the repo root
 
 set -euo pipefail
 
@@ -25,7 +26,7 @@ load_dotenv() {
   local dotenv_file=".env"
   [[ -f "$dotenv_file" ]] || return 0
 
-  while IFS= read -r line; do
+  while IFS= read -r line || [[ -n "$line" ]]; do
     # Trim leading/trailing whitespace
     line="${line#"${line%%[![:space:]]*}"}"
     line="${line%"${line##*[![:space:]]}"}"
@@ -35,7 +36,7 @@ load_dotenv() {
 
     # Require KEY=VALUE format with a safe key name
     if [[ ! "$line" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; then
-      echo "Warning: skipped malformed .env line: $line" >&2
+      echo "Warning: skipped malformed .env line (line content redacted)" >&2
       continue
     fi
 
