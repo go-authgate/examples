@@ -26,7 +26,9 @@ load_dotenv() {
   local dotenv_file=".env"
   [[ -f "$dotenv_file" ]] || return 0
 
+  local lineno=0
   while IFS= read -r line || [[ -n "$line" ]]; do
+    (( lineno++ )) || true
     # Trim leading/trailing whitespace
     line="${line#"${line%%[![:space:]]*}"}"
     line="${line%"${line##*[![:space:]]}"}"
@@ -36,7 +38,7 @@ load_dotenv() {
 
     # Require KEY=VALUE format with a safe key name
     if [[ ! "$line" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; then
-      echo "Warning: skipped malformed .env line (line content redacted)" >&2
+      echo "Warning: $dotenv_file line $lineno: skipped malformed entry (content redacted)" >&2
       continue
     fi
 
