@@ -14,6 +14,7 @@ import os
 import sys
 
 import authgate
+from authgate.credstore import default_token_secure_store
 
 
 def mask_token(s: str) -> str:
@@ -22,12 +23,13 @@ def mask_token(s: str) -> str:
     return s[:8] + "..."
 
 
-def print_token_info(client, token):
-    try:
-        info = client.userinfo(token.access_token)
-    except Exception as e:
-        print(f"Token: {mask_token(token.access_token)} (UserInfo error: {e})")
-        return
+def print_token_info(client, token, info=None):
+    if info is None:
+        try:
+            info = client.userinfo(token.access_token)
+        except Exception as e:
+            print(f"Token: {mask_token(token.access_token)} (UserInfo error: {e})")
+            return
 
     print(f"User: {info.name} ({info.email})")
     print(f"Subject: {info.sub}")
@@ -73,11 +75,9 @@ def main():
 
     # If the cached token is revoked/expired server-side, clear it and re-authenticate.
     try:
-        client.userinfo(token.access_token)
+        info = client.userinfo(token.access_token)
     except Exception:
         print("Cached token is invalid, re-authenticating...")
-        from authgate.credstore import default_token_secure_store
-
         store = default_token_secure_store("authgate", ".authgate-tokens.json")
         store.delete(client_id)
         client, token = authgate.authenticate(
@@ -85,8 +85,9 @@ def main():
             client_id,
             scopes=["profile", "email"],
         )
+        info = None
 
-    print_token_info(client, token)
+    print_token_info(client, token, info=info)
 
 
 if __name__ == "__main__":

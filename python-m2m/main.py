@@ -43,18 +43,30 @@ def main():
     client = OAuthClient(client_id, meta.to_endpoints(), client_secret=client_secret)
 
     # 3. Create auto-refreshing token source
-    ts = TokenSource(client, scopes=["email", "profile"], expiry_delta=30.0)
+    ts = TokenSource(client, scopes=["profile", "email"], expiry_delta=30.0)
 
     # 4. Use the auto-authenticated HTTP client
     auth = BearerAuth(ts)
     with httpx.Client(auth=auth) as http:
-        resp = http.get(f"{authgate_url}/oauth/userinfo")
+        with http.stream("GET", f"{authgate_url}/oauth/userinfo") as resp:
+            status_code = resp.status_code
+            body_bytes = bytearray()
+            for chunk in resp.iter_bytes():
+                if not chunk:
+                    continue
+                remaining = (MAX_BODY_SIZE + 1) - len(body_bytes)
+                if remaining <= 0:
+                    break
+                if len(chunk) > remaining:
+                    body_bytes.extend(chunk[:remaining])
+                    break
+                body_bytes.extend(chunk)
+            body = bytes(body_bytes)
 
-    body = resp.content[: MAX_BODY_SIZE + 1]
     truncated = len(body) > MAX_BODY_SIZE
     if truncated:
         body = body[:MAX_BODY_SIZE]
-    print(f"Status: {resp.status_code}")
+    print(f"Status: {status_code}")
     print(f"Body: {body.decode(errors='replace')}")
     if truncated:
         print("(response body truncated to 1 MB)")
