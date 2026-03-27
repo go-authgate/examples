@@ -95,7 +95,10 @@ http_get() {
   shift
   local config=""
   for h in "$@"; do
-    config+="header = \"${h}\""$'\n'
+    # Escape backslashes and double-quotes to prevent curl config injection
+    local escaped_h="${h//\\/\\\\}"
+    escaped_h="${escaped_h//\"/\\\"}"
+    config+="header = \"${escaped_h}\""$'\n'
   done
 
   local response
@@ -400,6 +403,8 @@ poll_for_token() {
 parse_token_response() {
   local body="$1"
   local old_refresh="$REFRESH_TOKEN"
+  local old_scope="$TOKEN_SCOPE"
+  local old_id_token="$ID_TOKEN"
 
   local fields
   if ! fields=$(echo "$body" | jq -r '[
@@ -424,6 +429,9 @@ parse_token_response() {
   } <<< "$fields"
 
   REFRESH_TOKEN="${new_refresh:-$old_refresh}"
+  # Preserve prior scope/id_token when the server omits them (e.g. refresh responses)
+  TOKEN_SCOPE="${TOKEN_SCOPE:-$old_scope}"
+  ID_TOKEN="${ID_TOKEN:-$old_id_token}"
 
   [ -n "$ACCESS_TOKEN" ] || die "Token response missing 'access_token'"
   [ -n "$TOKEN_TYPE" ] || die "Token response missing 'token_type'"
