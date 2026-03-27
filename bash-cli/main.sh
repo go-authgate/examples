@@ -160,6 +160,12 @@ discover_endpoints() {
     DEVICE_AUTH_ENDPOINT="${issuer%/}/oauth/device/code"
   fi
 
+  # userinfo_endpoint is optional in OIDC; warn so callers know token
+  # validation via UserInfo will be skipped.
+  if [ -z "$USERINFO_ENDPOINT" ]; then
+    echo "Warning: userinfo_endpoint not found in OIDC discovery; token validation via UserInfo will be skipped." >&2
+  fi
+
   TOKENINFO_URL="${issuer%/}/oauth/tokeninfo"
 }
 
@@ -228,11 +234,15 @@ save_cached_token() {
   local encoded
   encoded=$(echo "$token_obj" | jq -Rs '.')
 
+  # Treat missing or corrupted cache as empty; fall back to {}
   local existing
-  existing=$(cat "$TOKEN_CACHE_FILE" 2>/dev/null || echo '{}')
+  existing=$(jq '.' "$TOKEN_CACHE_FILE" 2>/dev/null || echo '{}')
 
   local tmp
   tmp=$(mktemp "${TOKEN_CACHE_FILE}.XXXXXX")
+  # shellcheck disable=SC2064
+  trap "rm -f '$tmp'" RETURN
+
   echo "$existing" | jq --arg cid "$CLIENT_ID" --argjson val "$encoded" \
     '.data[$cid] = $val' > "$tmp"
 
@@ -290,19 +300,21 @@ request_device_code() {
 
   if [ "$HTTP_STATUS" != "200" ]; then
     local err_desc
-    err_desc=$(echo "$HTTP_BODY" | jq -r '.error_description // .error // "unknown error"' 2>/dev/null)
+    err_desc=$(echo "$HTTP_BODY" | jq -r '.error_description // .error // "unknown error"' 2>/dev/null) || err_desc="unknown error"
     die "Device code request failed (HTTP $HTTP_STATUS): $err_desc"
   fi
 
   local fields
-  fields=$(echo "$HTTP_BODY" | jq -r '[
+  if ! fields=$(echo "$HTTP_BODY" | jq -r '[
     .device_code,
     .user_code,
     .verification_uri,
     .verification_uri_complete // empty,
     (.expires_in // 300 | tostring),
     (.interval // 5 | tostring)
-  ] | join("\n")')
+  ] | join("\n")' 2>/dev/null); then
+    die "Failed to parse device code response (invalid or non-JSON body)"
+  fi
 
   {
     IFS= read -r DEVICE_CODE
@@ -312,6 +324,12 @@ request_device_code() {
     IFS= read -r DEVICE_EXPIRES_IN
     IFS= read -r POLL_INTERVAL
   } <<< "$fields"
+
+  [ -n "$DEVICE_CODE" ] || die "Device code response missing 'device_code'"
+  [ -n "$USER_CODE" ] || die "Device code response missing 'user_code'"
+  [ -n "$VERIFICATION_URI" ] || die "Device code response missing 'verification_uri'"
+  [[ "$DEVICE_EXPIRES_IN" =~ ^[0-9]+$ ]] || DEVICE_EXPIRES_IN=300
+  [[ "$POLL_INTERVAL" =~ ^[0-9]+$ ]] || POLL_INTERVAL=5
 }
 
 poll_for_token() {
@@ -335,7 +353,7 @@ poll_for_token() {
     fi
 
     local error_code
-    error_code=$(echo "$HTTP_BODY" | jq -r '.error // "unknown"' 2>/dev/null)
+    error_code=$(echo "$HTTP_BODY" | jq -r '.error // "unknown"' 2>/dev/null) || error_code="unknown"
 
     case "$error_code" in
       authorization_pending)
@@ -356,7 +374,7 @@ poll_for_token() {
       *)
         echo "" >&2
         local err_desc
-        err_desc=$(echo "$HTTP_BODY" | jq -r '.error_description // empty' 2>/dev/null)
+        err_desc=$(echo "$HTTP_BODY" | jq -r '.error_description // empty' 2>/dev/null) || err_desc=""
         die "Token request failed: $error_code${err_desc:+ - $err_desc}"
         ;;
     esac
@@ -388,6 +406,9 @@ parse_token_response() {
   } <<< "$fields"
 
   REFRESH_TOKEN="${new_refresh:-$old_refresh}"
+
+  [ -n "$ACCESS_TOKEN" ] || die "Token response missing 'access_token'"
+  [ -n "$TOKEN_TYPE" ] || die "Token response missing 'token_type'"
 
   if [ "$EXPIRES_IN" -gt 0 ] 2>/dev/null; then
     EXPIRES_AT=$(( $(date +%s) + EXPIRES_IN ))
@@ -527,12 +548,15 @@ main() {
     run_device_flow
   fi
 
-  # Validate token with userinfo; re-auth if server-side invalid
-  if ! fetch_userinfo; then
-    echo "Cached token is invalid, re-authenticating..."
-    delete_cached_token
-    run_device_flow
-    fetch_userinfo || true
+  # Validate token with userinfo; re-auth if server-side invalid.
+  # Skip if userinfo_endpoint was not advertised by the server.
+  if [ -n "$USERINFO_ENDPOINT" ]; then
+    if ! fetch_userinfo; then
+      echo "Cached token is invalid, re-authenticating..."
+      delete_cached_token
+      run_device_flow
+      fetch_userinfo || true
+    fi
   fi
 
   save_cached_token
