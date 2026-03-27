@@ -19,13 +19,38 @@
 
 set -euo pipefail
 
-# --- Load .env file if present ---
-if [[ -f ".env" ]]; then
-  set -o allexport
-  # shellcheck source=/dev/null
-  source ".env"
-  set +o allexport
-fi
+# --- Load .env file safely if present ---
+load_dotenv() {
+  local dotenv_file=".env"
+  [[ -f "$dotenv_file" ]] || return 0
+
+  while IFS= read -r line; do
+    # Trim leading/trailing whitespace
+    line="${line#"${line%%[![:space:]]*}"}"
+    line="${line%"${line##*[![:space:]]}"}"
+
+    # Skip empty lines and comments
+    [[ -z "$line" || "${line:0:1}" == "#" ]] && continue
+
+    # Require KEY=VALUE format with a safe key name
+    if [[ ! "$line" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; then
+      continue
+    fi
+
+    local key value
+    key="${line%%=*}"
+    value="${line#*=}"
+
+    # Reject values containing characters used for code execution
+    if [[ "$value" =~ ['`$()|\&;<>'] ]]; then
+      continue
+    fi
+
+    export "$key=$value"
+  done < "$dotenv_file"
+}
+
+load_dotenv
 
 # --- Configuration ---
 SCOPE="profile email"
