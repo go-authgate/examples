@@ -22,10 +22,16 @@ import (
 )
 
 func main() {
+	authgateURL := os.Getenv("AUTHGATE_URL")
+	clientID := os.Getenv("CLIENT_ID")
+	if authgateURL == "" || clientID == "" {
+		log.Fatal("Set AUTHGATE_URL and CLIENT_ID")
+	}
+
 	ctx := context.Background()
 	client, token, err := authgate.New(ctx,
-		os.Getenv("AUTHGATE_URL"),
-		os.Getenv("CLIENT_ID"),
+		authgateURL,
+		clientID,
 		authgate.WithScopes("profile", "email"),
 	)
 	if err != nil {

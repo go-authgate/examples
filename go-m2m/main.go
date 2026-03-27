@@ -31,7 +31,7 @@ func main() {
 	clientSecret := os.Getenv("CLIENT_SECRET")
 
 	if authgateURL == "" || clientID == "" || clientSecret == "" {
-		log.Fatal("Set AUTHGATE_URL, CLIENT_ID, CLIENT_SECRET")
+		log.Fatal("Set AUTHGATE_URL, CLIENT_ID, and CLIENT_SECRET")
 	}
 
 	ctx := context.Background()
