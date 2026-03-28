@@ -17,11 +17,23 @@ Multi-language usage examples for AuthGate authentication (Go, Python, Bash).
 
 All examples require `AUTHGATE_URL` and `CLIENT_ID`. M2M examples additionally require `CLIENT_SECRET`.
 
+Set via environment variables:
+
 ```bash
 export AUTHGATE_URL=https://auth.example.com
 export CLIENT_ID=your-client-id
 export CLIENT_SECRET=your-client-secret  # M2M only
 ```
+
+Or use a `.env` file in the example directory:
+
+```bash
+AUTHGATE_URL=https://auth.example.com
+CLIENT_ID=your-client-id
+CLIENT_SECRET=your-client-secret  # M2M only
+```
+
+All examples automatically load `.env` if present. Environment variables take precedence over `.env` values.
 
 ## Interactive CLI Authentication
 
