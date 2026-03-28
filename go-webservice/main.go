@@ -25,9 +25,12 @@ import (
 	"github.com/go-authgate/sdk-go/discovery"
 	"github.com/go-authgate/sdk-go/middleware"
 	"github.com/go-authgate/sdk-go/oauth"
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	_ = godotenv.Load()
+
 	authgateURL := os.Getenv("AUTHGATE_URL")
 	clientID := os.Getenv("CLIENT_ID")
 

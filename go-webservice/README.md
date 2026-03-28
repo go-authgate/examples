@@ -26,6 +26,21 @@ export CLIENT_ID=your-client-id
 go run main.go
 ```
 
+Alternatively, create a `.env` file in the `go-webservice/` directory:
+
+```bash
+AUTHGATE_URL=https://auth.example.com
+CLIENT_ID=your-client-id
+```
+
+Then simply run:
+
+```bash
+go run main.go
+```
+
+Environment variables take precedence over `.env` values. The `.env` file is optional — the program works without it.
+
 The server starts on port **8080**.
 
 ## API Endpoints

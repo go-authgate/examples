@@ -28,6 +28,22 @@ export CLIENT_SECRET=your-client-secret
 go run main.go
 ```
 
+Alternatively, create a `.env` file in the `go-m2m/` directory:
+
+```bash
+AUTHGATE_URL=https://auth.example.com
+CLIENT_ID=your-client-id
+CLIENT_SECRET=your-client-secret
+```
+
+Then simply run:
+
+```bash
+go run main.go
+```
+
+Environment variables take precedence over `.env` values. The `.env` file is optional — the program works without it.
+
 ## How It Works
 
 1. Auto-discovers OIDC endpoints via `/.well-known/openid-configuration`
