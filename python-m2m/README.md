@@ -29,6 +29,22 @@ export CLIENT_SECRET=your-client-secret
 uv run python main.py
 ```
 
+Alternatively, create a `.env` file in the `python-m2m/` directory:
+
+```bash
+AUTHGATE_URL=https://auth.example.com
+CLIENT_ID=your-client-id
+CLIENT_SECRET=your-client-secret
+```
+
+Then simply run:
+
+```bash
+uv run python main.py
+```
+
+Environment variables take precedence over `.env` values. The `.env` file is optional — the program works without it.
+
 `uv run` automatically installs dependencies from `pyproject.toml` on first run.
 
 ## How It Works

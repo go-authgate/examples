@@ -4,6 +4,8 @@
 # no user interaction is needed. The token is automatically cached
 # and refreshed before expiry.
 #
+# Configuration can be provided via environment variables or a .env file.
+#
 # Usage:
 #
 #   export AUTHGATE_URL=https://auth.example.com
@@ -15,6 +17,7 @@ import os
 import sys
 
 import httpx
+from dotenv import load_dotenv
 
 from authgate.clientcreds import BearerAuth, TokenSource
 from authgate.discovery import DiscoveryClient
@@ -24,6 +27,8 @@ MAX_BODY_SIZE = 1 << 20  # 1 MB
 
 
 def main():
+    load_dotenv()
+
     authgate_url = os.getenv("AUTHGATE_URL")
     client_id = os.getenv("CLIENT_ID")
     client_secret = os.getenv("CLIENT_SECRET")
