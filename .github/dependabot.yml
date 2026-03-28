@@ -1,0 +1,26 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: gomod
+    directory: /go-cli
+    schedule:
+      interval: weekly
+  - package-ecosystem: gomod
+    directory: /go-m2m
+    schedule:
+      interval: weekly
+  - package-ecosystem: gomod
+    directory: /go-webservice
+    schedule:
+      interval: weekly
+  - package-ecosystem: pip
+    directory: /python-cli
+    schedule:
+      interval: weekly
+  - package-ecosystem: pip
+    directory: /python-m2m
+    schedule:
+      interval: weekly
