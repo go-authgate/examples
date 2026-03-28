@@ -8,11 +8,56 @@
 #
 # Usage:
 #
+#   # Option 1 — use a .env file (must run from the directory containing .env):
+#   cd bash-cli
+#   cp .env.example .env
+#   # edit .env with your values
+#   bash main.sh   # .env is loaded from the current working directory
+#
+#   # Option 2 — export variables directly (can run from any directory):
 #   export AUTHGATE_URL=https://auth.example.com
 #   export CLIENT_ID=your-client-id
-#   bash main.sh
+#   bash main.sh        # or: bash bash-cli/main.sh from the repo root
 
 set -euo pipefail
+
+# --- Load .env file safely from the current working directory if present ---
+load_dotenv() {
+  local dotenv_file=".env"
+  [[ -f "$dotenv_file" ]] || return 0
+
+  local lineno=0
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    (( lineno++ )) || true
+    # Trim leading/trailing whitespace
+    line="${line#"${line%%[![:space:]]*}"}"
+    line="${line%"${line##*[![:space:]]}"}"
+
+    # Skip empty lines and comments
+    [[ -z "$line" || "${line:0:1}" == "#" ]] && continue
+
+    # Require KEY=VALUE format with a safe key name
+    if [[ ! "$line" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; then
+      echo "Warning: $dotenv_file line $lineno: skipped malformed entry (content redacted)" >&2
+      continue
+    fi
+
+    local key value
+    key="${line%%=*}"
+    value="${line#*=}"
+
+    # Only set variables not already defined in the environment.
+    # This guard also prevents overwriting shell internals (PATH, IFS, etc.)
+    # since they are always present in the environment.
+    if [[ -z "${!key+x}" ]]; then
+      if ! export "$key=$value"; then
+        echo "Warning: $dotenv_file line $lineno: failed to export '$key' (skipping)" >&2
+      fi
+    fi
+  done < "$dotenv_file"
+}
+
+load_dotenv
 
 # --- Configuration ---
 SCOPE="profile email"
