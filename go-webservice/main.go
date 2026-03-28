@@ -21,6 +21,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/go-authgate/sdk-go/discovery"
 	"github.com/go-authgate/sdk-go/middleware"
@@ -70,8 +71,15 @@ func main() {
 	mux.Handle("/api/data", authWithScope(http.HandlerFunc(dataHandler)))
 	mux.HandleFunc("/health", healthHandler)
 
+	srv := &http.Server{
+		Addr:         ":8080",
+		Handler:      mux,
+		ReadTimeout:  15 * time.Second,
+		WriteTimeout: 15 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
 	log.Println("Listening on :8080")
-	log.Fatal(http.ListenAndServe(":8080", mux))
+	log.Fatal(srv.ListenAndServe())
 }
 
 func profileHandler(w http.ResponseWriter, r *http.Request) {

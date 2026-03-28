@@ -224,15 +224,19 @@ discover_endpoints() {
 
 # --- Token Cache ---
 
-load_cached_token() {
-  [ -f "$TOKEN_CACHE_FILE" ] || return 1
-
-  # Refuse to operate on a symlink or a file not owned by the current user
-  # to avoid following attacker-controlled links to credential files.
+# Refuse to operate on a symlink or a file not owned by the current user
+# to avoid following attacker-controlled links to credential files.
+validate_cache_file() {
   if [ -L "$TOKEN_CACHE_FILE" ] || [ ! -O "$TOKEN_CACHE_FILE" ]; then
     echo "Warning: Refusing to use token cache file that is a symlink or not owned by the current user: $TOKEN_CACHE_FILE" >&2
     return 1
   fi
+  return 0
+}
+
+load_cached_token() {
+  [ -f "$TOKEN_CACHE_FILE" ] || return 1
+  validate_cache_file || return 1
 
   chmod 600 "$TOKEN_CACHE_FILE" 2>/dev/null || true
 
@@ -298,10 +302,7 @@ save_cached_token() {
   # If the cache file already exists, refuse to operate on a symlink or
   # a file not owned by the current user to prevent credential clobbering.
   if [ -e "$TOKEN_CACHE_FILE" ]; then
-    if [ -L "$TOKEN_CACHE_FILE" ] || [ ! -O "$TOKEN_CACHE_FILE" ]; then
-      echo "Warning: Refusing to write token cache file that is a symlink or not owned by the current user: $TOKEN_CACHE_FILE" >&2
-      return 1
-    fi
+    validate_cache_file || return 1
   fi
 
   # Treat missing or corrupted cache as empty; fall back to {}
@@ -331,11 +332,7 @@ save_cached_token() {
 delete_cached_token() {
   [ -f "$TOKEN_CACHE_FILE" ] || return 0
 
-  # Refuse to operate on a symlink or a file not owned by the current user
-  if [ -L "$TOKEN_CACHE_FILE" ] || [ ! -O "$TOKEN_CACHE_FILE" ]; then
-    echo "Warning: Refusing to delete token cache file that is a symlink or not owned by the current user: $TOKEN_CACHE_FILE" >&2
-    return 0
-  fi
+  validate_cache_file || return 0
 
   local tmp
   tmp=$(mktemp "${TOKEN_CACHE_FILE}.XXXXXX")

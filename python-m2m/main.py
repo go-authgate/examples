@@ -53,25 +53,13 @@ def main():
     # 4. Use the auto-authenticated HTTP client
     auth = BearerAuth(ts)
     with httpx.Client(auth=auth) as http:
-        with http.stream("GET", f"{authgate_url}/oauth/userinfo") as resp:
-            status_code = resp.status_code
-            body_bytes = bytearray()
-            for chunk in resp.iter_bytes():
-                if not chunk:
-                    continue
-                remaining = (MAX_BODY_SIZE + 1) - len(body_bytes)
-                if remaining <= 0:
-                    break
-                if len(chunk) > remaining:
-                    body_bytes.extend(chunk[:remaining])
-                    break
-                body_bytes.extend(chunk)
-            body = bytes(body_bytes)
+        resp = http.get(f"{authgate_url}/oauth/userinfo")
+        body = resp.content
 
     truncated = len(body) > MAX_BODY_SIZE
     if truncated:
         body = body[:MAX_BODY_SIZE]
-    print(f"Status: {status_code}")
+    print(f"Status: {resp.status_code}")
     print(f"Body: {body.decode(errors='replace')}")
     if truncated:
         print("(response body truncated to 1 MB)")
