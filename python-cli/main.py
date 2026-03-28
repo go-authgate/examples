@@ -4,6 +4,8 @@
 # If not (SSH session), it falls back to Device Code flow.
 # Tokens are persisted to OS keyring (with file fallback) for reuse.
 #
+# Configuration can be provided via environment variables or a .env file.
+#
 # Usage:
 #
 #   export AUTHGATE_URL=https://auth.example.com
@@ -12,6 +14,8 @@
 
 import os
 import sys
+
+from dotenv import load_dotenv
 
 import authgate
 from authgate.credstore import default_token_secure_store
@@ -57,6 +61,8 @@ def print_token_info(client, token, info=None):
 
 
 def main():
+    load_dotenv()
+
     authgate_url = os.getenv("AUTHGATE_URL")
     client_id = os.getenv("CLIENT_ID")
 
