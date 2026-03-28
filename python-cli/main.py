@@ -20,6 +20,8 @@ from dotenv import load_dotenv
 import authgate
 from authgate.credstore import default_token_secure_store
 
+SCOPES = ["profile", "email"]
+
 
 def mask_token(s: str) -> str:
     if len(s) <= 8:
@@ -76,20 +78,20 @@ def main():
     client, token = authgate.authenticate(
         authgate_url,
         client_id,
-        scopes=["profile", "email"],
+        scopes=SCOPES,
     )
 
     # If the cached token is revoked/expired server-side, clear it and re-authenticate.
     try:
         info = client.userinfo(token.access_token)
-    except Exception:
-        print("Cached token is invalid, re-authenticating...")
+    except Exception as e:
+        print(f"Cached token is invalid ({e}), re-authenticating...")
         store = default_token_secure_store("authgate", ".authgate-tokens.json")
         store.delete(client_id)
         client, token = authgate.authenticate(
             authgate_url,
             client_id,
-            scopes=["profile", "email"],
+            scopes=SCOPES,
         )
         info = None
 
