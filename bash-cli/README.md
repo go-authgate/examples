@@ -23,10 +23,22 @@ Uses the **Device Code** flow exclusively. The user authenticates on a separate 
 ## Usage
 
 ```bash
+# Option 1 — use a .env file (run from the bash-cli directory):
+cp .env.example .env
+# edit .env with your values
+bash main.sh
+
+# Option 2 — export variables directly:
 export AUTHGATE_URL=https://auth.example.com
 export CLIENT_ID=your-client-id
 bash main.sh
 ```
+
+## `.env` File Behavior
+
+- The `.env` file is loaded from the **current working directory**, not the script's directory
+- Variables already set in the environment are **not overridden** — explicit `export` always takes precedence
+- Malformed lines (not matching `KEY=VALUE`) are skipped with a warning
 
 ## How It Works
 
@@ -76,6 +88,7 @@ TokenInfo Exp: 1735732800
 - **File ownership check** — only operates on cache files owned by the current user
 - **stdin-based secret passing** — POST data and headers are passed via stdin to avoid leaking tokens in the process list
 - **Curl config injection prevention** — escapes special characters in HTTP headers
+- **Safe `.env` parsing** — only accepts `KEY=VALUE` format; skips malformed lines and never overrides existing environment variables
 - **File permissions** — cache files are set to `600` (owner-only read/write)
 
 ## Cross-Platform Support
