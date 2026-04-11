@@ -2,4 +2,4 @@
 name = "python-cli"
 version = "0.1.0"
 requires-python = ">=3.10"
-dependencies = ["go-authgate==0.2.2", "python-dotenv>=1.0.0"]
+dependencies = ["go-authgate==0.2.2", "python-dotenv>=1.2.2"]
