@@ -16,6 +16,10 @@ updates:
     directory: /go-webservice
     schedule:
       interval: weekly
+  - package-ecosystem: gomod
+    directory: /go-oidc
+    schedule:
+      interval: weekly
   - package-ecosystem: pip
     directory: /python-cli
     schedule:

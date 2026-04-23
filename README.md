@@ -12,6 +12,7 @@ Multi-language usage examples for AuthGate authentication (Go, Python, Bash).
 | [go-m2m](go-m2m/)               | Service-to-service   | Client Credentials           | Go       | Go 1.25+         |
 | [python-m2m](python-m2m/)       | Service-to-service   | Client Credentials           | Python   | Python 3.10+, uv |
 | [go-webservice](go-webservice/) | API protection       | Bearer validation            | Go       | Go 1.25+         |
+| [go-oidc](go-oidc/)             | Web login (no SDK)   | Auth Code (coreos/go-oidc)   | Go       | Go 1.25+         |
 
 ## Environment Setup
 
@@ -101,6 +102,16 @@ go run main.go
 # Test
 curl -H "Authorization: Bearer <token>" http://localhost:8080/api/profile
 curl -H "Authorization: Bearer <token>" http://localhost:8080/api/data
+```
+
+## OIDC Web Login (no SDK)
+
+Browser-based Authorization Code flow against any OpenID Connect provider using the standard [`github.com/coreos/go-oidc/v3`](https://github.com/coreos/go-oidc) library and `golang.org/x/oauth2`. Demonstrates discovery, state + nonce CSRF protection, ID token verification, and the UserInfo endpoint — handy when integrating AuthGate into an existing Go web app without the SDK.
+
+```bash
+cd go-oidc
+go run main.go
+# then open http://localhost:8080/
 ```
 
 ## OAuth 2.0 Flows
