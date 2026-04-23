@@ -56,7 +56,7 @@ bash main.sh
 
 ## Example Output
 
-```
+```txt
 To sign in, open the following URL in a browser:
 
   https://auth.example.com/device
