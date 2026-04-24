@@ -36,8 +36,8 @@ die() { printf 'Error: %s\n' "$*" >&2; exit 1; }
 
 # Decode a base64url-encoded segment (converts -/_ to +/, pads to multiple of 4).
 b64url_decode() {
-  local s="${1//-/+}"
-  s="${s//_//}"
+  local s
+  s=$(printf '%s' "$1" | tr '_-' '/+')
   case $((${#s} % 4)) in
     2) s+="==" ;;
     3) s+="=" ;;

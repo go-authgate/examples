@@ -103,7 +103,11 @@ func (v *validator) middleware(requiredScopes ...string) func(http.Handler) http
 			}
 			info, err := v.verify(r.Context(), raw)
 			if err != nil {
-				writeAuthError(w, "invalid_token", err.Error())
+				// RFC 6750 best practice: log full details server-side, return a
+				// generic error_description so verifier internals (expected issuer,
+				// audience, parse failures) don't leak to clients.
+				log.Printf("token verification failed: %v", err)
+				writeAuthError(w, "invalid_token", "invalid token")
 				return
 			}
 			for _, s := range requiredScopes {
@@ -206,7 +210,11 @@ func main() {
 }
 
 func profileHandler(w http.ResponseWriter, r *http.Request) {
-	info, _ := infoFromContext(r.Context())
+	info, ok := infoFromContext(r.Context())
+	if !ok {
+		writeAuthError(w, "invalid_request", "missing token context")
+		return
+	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"subject":   info.Subject,
@@ -218,7 +226,11 @@ func profileHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func dataHandler(w http.ResponseWriter, r *http.Request) {
-	info, _ := infoFromContext(r.Context())
+	info, ok := infoFromContext(r.Context())
+	if !ok {
+		writeAuthError(w, "invalid_request", "missing token context")
+		return
+	}
 	msg := "You have email-only access"
 	if info.hasScope("profile") {
 		msg = "You have email+profile access"
