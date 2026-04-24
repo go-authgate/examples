@@ -136,10 +136,12 @@ fi
 # IFS whitespace and collapses, turning "\t\tTOKEN" into a single field).
 parsed=$(jq -r '[.error // "", .error_description // "", .access_token // ""] | join("\u001e")' \
   <<<"$response" 2>/dev/null) \
-  || die "token endpoint returned non-JSON response: $response"
+  || die "token endpoint returned non-JSON response (rerun with --debug to inspect the raw body)"
 IFS=$'\x1e' read -r err desc token <<<"$parsed"
 [[ -z "$err" ]] || die "token endpoint returned $err: $desc"
-[[ -n "$token" ]] || die "access_token missing from response: $response"
+# Don't echo $response here: if parsing breaks on a valid 200 we'd leak
+# the access_token to stderr / shell history. Use --debug to see the body.
+[[ -n "$token" ]] || die "access_token missing from response (rerun with --debug to inspect the raw body)"
 
 if [[ "$RAW" == "1" ]]; then
   jq . <<<"$response"

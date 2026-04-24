@@ -6,7 +6,7 @@
 //  1. GET {ISSUER_URL}/.well-known/openid-configuration
 //     → learn jwks_uri and supported signing algorithms
 //  2. GET {jwks_uri}
-//     → cache the RSA public keys (auto-refreshed on unknown kid)
+//     → cache the public keys from JWKS (auto-refreshed on unknown kid)
 //  3. For every incoming request with Authorization: Bearer <jwt>:
 //     - verify RS256 signature against the cached JWKS
 //     - check iss, aud, exp, nbf locally
