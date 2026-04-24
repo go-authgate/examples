@@ -81,7 +81,9 @@ while [[ $# -gt 0 ]]; do
     --raw)    RAW=1; shift ;;
     --decode) DECODE=1; shift ;;
     --debug)  DEBUG=1; shift ;;
-    --scope)  SCOPE="$2"; shift 2 ;;
+    --scope)
+      [[ $# -ge 2 && "$2" != -* ]] || die 'missing value for --scope (try --scope "read")'
+      SCOPE="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) die "unknown arg: $1 (try --help)" ;;
   esac

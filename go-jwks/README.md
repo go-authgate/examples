@@ -157,5 +157,5 @@ curl http://localhost:8088/health
 
 ```text
 HTTP/1.1 401 Unauthorized
-WWW-Authenticate: Bearer error="invalid_token", error_description="token expired"
+WWW-Authenticate: Bearer error="invalid_token", error_description="invalid token"
 ```
