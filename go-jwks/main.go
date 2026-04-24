@@ -165,7 +165,11 @@ func infoFromContext(ctx context.Context) (*tokenInfo, bool) {
 func main() {
 	_ = godotenv.Load()
 
-	issuerURL := strings.TrimRight(strings.TrimSpace(os.Getenv("ISSUER_URL")), "/")
+	// Don't strip a trailing slash: OIDC Core §3.1.2.1 compares the issuer
+	// byte-for-byte, and some providers (e.g. Google) legitimately publish it
+	// with a trailing "/". Whatever the user sets here must match the `iss`
+	// claim exactly.
+	issuerURL := strings.TrimSpace(os.Getenv("ISSUER_URL"))
 	expectedAudience := strings.TrimSpace(os.Getenv("EXPECTED_AUDIENCE"))
 	// Audience enforcement is required by default. Operators must either set
 	// EXPECTED_AUDIENCE, or opt out explicitly with SKIP_AUDIENCE_CHECK=1 for
