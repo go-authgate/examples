@@ -4,15 +4,16 @@ Multi-language usage examples for AuthGate authentication (Go, Python, Bash).
 
 ## Quick Reference
 
-| Example                         | Use Case             | OAuth Flow                   | Language | Prerequisites    |
-| ------------------------------- | -------------------- | ---------------------------- | -------- | ---------------- |
-| [go-cli](go-cli/)               | CLI login            | Auth Code+PKCE / Device Code | Go       | Go 1.25+         |
-| [python-cli](python-cli/)       | CLI login            | Auth Code+PKCE / Device Code | Python   | Python 3.10+, uv |
-| [bash-cli](bash-cli/)           | CLI login (headless) | Device Code (RFC 8628)       | Bash     | curl, jq         |
-| [go-m2m](go-m2m/)               | Service-to-service   | Client Credentials           | Go       | Go 1.25+         |
-| [python-m2m](python-m2m/)       | Service-to-service   | Client Credentials           | Python   | Python 3.10+, uv |
-| [go-webservice](go-webservice/) | API protection       | Bearer validation            | Go       | Go 1.25+         |
-| [go-oidc](go-oidc/)             | Web login (no SDK)   | Auth Code (coreos/go-oidc)   | Go       | Go 1.25+         |
+| Example                         | Use Case                 | OAuth Flow                   | Language | Prerequisites    |
+| ------------------------------- | ------------------------ | ---------------------------- | -------- | ---------------- |
+| [go-cli](go-cli/)               | CLI login                | Auth Code+PKCE / Device Code | Go       | Go 1.25+         |
+| [python-cli](python-cli/)       | CLI login                | Auth Code+PKCE / Device Code | Python   | Python 3.10+, uv |
+| [bash-cli](bash-cli/)           | CLI login (headless)     | Device Code (RFC 8628)       | Bash     | curl, jq         |
+| [go-m2m](go-m2m/)               | Service-to-service       | Client Credentials           | Go       | Go 1.25+         |
+| [python-m2m](python-m2m/)       | Service-to-service       | Client Credentials           | Python   | Python 3.10+, uv |
+| [go-webservice](go-webservice/) | API protection           | Bearer validation            | Go       | Go 1.25+         |
+| [go-jwks](go-jwks/)             | API protection (offline) | JWKS public-key validation   | Go       | Go 1.25+         |
+| [go-oidc](go-oidc/)             | Web login (no SDK)       | Auth Code (coreos/go-oidc)   | Go       | Go 1.25+         |
 
 ## Environment Setup
 
@@ -102,6 +103,15 @@ go run main.go
 # Test
 curl -H "Authorization: Bearer <token>" http://localhost:8080/api/profile
 curl -H "Authorization: Bearer <token>" http://localhost:8080/api/data
+```
+
+## Offline JWKS Validation (no SDK, no introspection)
+
+Alternative resource-server pattern: validates JWT access tokens locally using the provider's public keys (`jwks_uri`), with no per-request callback to AuthGate. Ideal for latency-sensitive or multi-region deployments. Trade-off vs. [go-webservice](go-webservice/): revoked tokens stay valid until their `exp`, so keep access-token TTLs short.
+
+```bash
+cd go-jwks
+go run main.go
 ```
 
 ## OIDC Web Login (no SDK)
