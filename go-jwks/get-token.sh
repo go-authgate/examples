@@ -104,8 +104,10 @@ curl_opts=(-sS --connect-timeout 10 --max-time 30)
 
 discovery="${ISSUER_URL%/}/.well-known/openid-configuration"
 meta=$(curl "${curl_opts[@]}" "$discovery") || die "discovery failed: $discovery"
-token_url=$(jq -r '.token_endpoint // empty' <<<"$meta")
-[[ -n "$token_url" ]] || die "token_endpoint missing in discovery document"
+# jq -er fails if the body isn't JSON OR if token_endpoint is absent, so a
+# proxy HTML error page produces a clean message instead of a raw jq trace.
+token_url=$(jq -er '.token_endpoint // empty' <<<"$meta" 2>/dev/null) \
+  || die "discovery returned invalid JSON or missing token_endpoint: $discovery"
 
 # Build the form body with each value URL-encoded separately.
 # Secrets flow through jq's env (not argv) and curl's stdin (not argv) so

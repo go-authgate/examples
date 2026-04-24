@@ -170,6 +170,10 @@ func main() {
 	if issuerURL == "" {
 		log.Fatal("Set ISSUER_URL (e.g. https://auth.example.com)")
 	}
+	if expectedAudience != "" && skipAudience {
+		log.Fatal("Set exactly one of EXPECTED_AUDIENCE or SKIP_AUDIENCE_CHECK=1, not both " +
+			"(SkipClientIDCheck wins and EXPECTED_AUDIENCE would be silently ignored)")
+	}
 	if expectedAudience == "" && !skipAudience {
 		log.Fatal("Set EXPECTED_AUDIENCE to enforce the `aud` claim, " +
 			"or SKIP_AUDIENCE_CHECK=1 to opt out (some issuers don't emit aud on access tokens)")
