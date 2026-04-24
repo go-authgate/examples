@@ -112,7 +112,7 @@ func (v *validator) middleware(requiredScopes ...string) func(http.Handler) http
 			}
 			for _, s := range requiredScopes {
 				if !info.hasScope(s) {
-					writeAuthError(w, "insufficient_scope", "required scope: "+s)
+					writeAuthError(w, "insufficient_scope", "required scope: "+s, s)
 					return
 				}
 			}
@@ -130,13 +130,25 @@ func bearerToken(r *http.Request) string {
 	return strings.TrimSpace(h[len(prefix):])
 }
 
-// writeAuthError emits an RFC 6750 compliant Bearer challenge.
-func writeAuthError(w http.ResponseWriter, code, desc string) {
-	status := http.StatusUnauthorized
-	if code == "insufficient_scope" {
+// writeAuthError emits an RFC 6750 compliant Bearer challenge. The status
+// code follows §3.1: 400 for invalid_request, 401 for invalid_token,
+// 403 for insufficient_scope. When scopes are supplied they are advertised
+// via the `scope` attribute so clients know what to request.
+func writeAuthError(w http.ResponseWriter, code, desc string, scopes ...string) {
+	var status int
+	switch code {
+	case "invalid_request":
+		status = http.StatusBadRequest
+	case "insufficient_scope":
 		status = http.StatusForbidden
+	default: // invalid_token and anything else
+		status = http.StatusUnauthorized
 	}
-	w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer error=%q, error_description=%q`, code, desc))
+	challenge := fmt.Sprintf(`Bearer error=%q, error_description=%q`, code, desc)
+	if len(scopes) > 0 {
+		challenge += fmt.Sprintf(`, scope=%q`, strings.Join(scopes, " "))
+	}
+	w.Header().Set("WWW-Authenticate", challenge)
 	http.Error(w, desc, status)
 }
 
@@ -148,8 +160,8 @@ func infoFromContext(ctx context.Context) (*tokenInfo, bool) {
 func main() {
 	_ = godotenv.Load()
 
-	issuerURL := strings.TrimRight(os.Getenv("ISSUER_URL"), "/")
-	expectedAudience := os.Getenv("EXPECTED_AUDIENCE") // optional
+	issuerURL := strings.TrimRight(strings.TrimSpace(os.Getenv("ISSUER_URL")), "/")
+	expectedAudience := strings.TrimSpace(os.Getenv("EXPECTED_AUDIENCE")) // optional
 	if issuerURL == "" {
 		log.Fatal("Set ISSUER_URL (e.g. https://auth.example.com)")
 	}

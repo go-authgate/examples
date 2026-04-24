@@ -91,6 +91,9 @@ done
 
 command -v curl >/dev/null || die "curl not found"
 command -v jq   >/dev/null || die "jq not found"
+if [[ "$DECODE" == "1" ]]; then
+  command -v base64 >/dev/null || die "base64 not found (required for --decode)"
+fi
 
 : "${ISSUER_URL:?set ISSUER_URL (or add it to .env)}"
 : "${CLIENT_ID:?set CLIENT_ID}"

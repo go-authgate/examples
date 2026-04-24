@@ -78,7 +78,7 @@ The server listens on port **8088**.
 
 ### Quick path: `get-token.sh`
 
-A tiny helper that runs the OAuth 2.0 **Client Credentials** grant and prints an access token you can paste into `curl`. Reads `ISSUER_URL` / `CLIENT_ID` / `CLIENT_SECRET` from this directory's `.env` (or the environment). Requires `curl` + `jq`.
+A tiny helper that runs the OAuth 2.0 **Client Credentials** grant and prints an access token you can paste into `curl`. Reads `ISSUER_URL` / `CLIENT_ID` / `CLIENT_SECRET` from this directory's `.env` (or the environment). Requires `curl` + `jq`; `--decode` also requires `base64`.
 
 ```bash
 # Print just the access_token
