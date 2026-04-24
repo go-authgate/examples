@@ -124,12 +124,14 @@ func (v *validator) middleware(requiredScopes ...string) func(http.Handler) http
 }
 
 func bearerToken(r *http.Request) string {
-	h := r.Header.Get("Authorization")
-	const prefix = "Bearer "
-	if len(h) <= len(prefix) || !strings.EqualFold(h[:len(prefix)], prefix) {
+	// Split on any whitespace so the parser is lenient about odd Authorization
+	// headers in the wild (extra spaces, tabs) while still enforcing the
+	// two-part scheme + token shape and case-insensitive "Bearer".
+	parts := strings.Fields(r.Header.Get("Authorization"))
+	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
 		return ""
 	}
-	return strings.TrimSpace(h[len(prefix):])
+	return parts[1]
 }
 
 // writeAuthError emits an RFC 6750 compliant Bearer challenge. The status

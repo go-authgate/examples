@@ -57,15 +57,26 @@ decode_jwt() {
 }
 
 load_dotenv() {
-  local file="$1"
+  local file="$1" line key value line_no=0
   [[ -f "$file" ]] || return 0
   while IFS= read -r line || [[ -n "$line" ]]; do
+    line_no=$((line_no + 1))
     line="${line#"${line%%[![:space:]]*}"}"   # trim leading whitespace
     line="${line%"${line##*[![:space:]]}"}"   # trim trailing whitespace
     [[ -z "$line" || "${line:0:1}" == "#" ]] && continue
-    [[ "$line" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]] || continue
-    local key="${line%%=*}" value="${line#*=}"
-    [[ -z "${!key+x}" ]] && export "$key=$value"
+    if [[ ! "$line" =~ ^[A-Za-z_][A-Za-z0-9_]*= ]]; then
+      printf 'Warning: %s:%d: skipping malformed entry (content redacted)\n' \
+        "$file" "$line_no" >&2
+      continue
+    fi
+    key="${line%%=*}"
+    value="${line#*=}"
+    if [[ -z "${!key+x}" ]]; then
+      if ! export "$key=$value"; then
+        printf 'Warning: %s:%d: failed to export %s (value redacted)\n' \
+          "$file" "$line_no" "$key" >&2
+      fi
+    fi
   done < "$file"
 }
 
