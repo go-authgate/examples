@@ -13,7 +13,7 @@ sequenceDiagram
 
     Note over RS,AG: Startup / on-demand (cached)
     RS->>AG: GET /.well-known/openid-configuration
-    AG-->>RS: issuer, jwks_uri, signing_algs
+    AG-->>RS: issuer, jwks_uri
     RS->>AG: GET {jwks_uri}
     AG-->>RS: JWKS (public keys)
 

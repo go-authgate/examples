@@ -194,9 +194,13 @@ func main() {
 		log.Fatalf("discover provider: %v", err)
 	}
 
+	// OIDC discovery only standardizes `id_token_signing_alg_values_supported`
+	// — there's no access-token-specific field — so we log the ID-token set as
+	// a reasonable hint at what algorithms the issuer's JWKS will use. Tokens
+	// are still validated strictly by the verifier via the cached JWKS.
 	var meta struct {
-		JWKSURI     string   `json:"jwks_uri"`
-		SigningAlgs []string `json:"id_token_signing_alg_values_supported"`
+		JWKSURI            string   `json:"jwks_uri"`
+		IDTokenSigningAlgs []string `json:"id_token_signing_alg_values_supported"`
 	}
 	if err := provider.Claims(&meta); err != nil {
 		log.Fatalf("read provider metadata: %v", err)
@@ -226,7 +230,7 @@ func main() {
 
 	log.Printf("Issuer:   %s", issuerURL)
 	log.Printf("JWKS:     %s", meta.JWKSURI)
-	log.Printf("Signing:  %v", meta.SigningAlgs)
+	log.Printf("ID-token signing algs: %v (access tokens usually share the same set)", meta.IDTokenSigningAlgs)
 	if expectedAudience != "" {
 		log.Printf("Audience: %s", expectedAudience)
 	} else {
