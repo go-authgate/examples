@@ -158,9 +158,25 @@ curl http://localhost:8088/health
 }
 ```
 
-**Missing / invalid token**:
+**Missing token** (no `Authorization` header):
+
+```text
+HTTP/1.1 401 Unauthorized
+WWW-Authenticate: Bearer
+```
+
+RFC 6750 §3 reserves the `error` attribute for cases where credentials were supplied but rejected — a request with no credentials gets a bare challenge.
+
+**Invalid token** (present but signature / issuer / audience / expiry fails):
 
 ```text
 HTTP/1.1 401 Unauthorized
 WWW-Authenticate: Bearer error="invalid_token", error_description="invalid token"
+```
+
+**Insufficient scope**:
+
+```text
+HTTP/1.1 403 Forbidden
+WWW-Authenticate: Bearer error="insufficient_scope", error_description="required scope: email", scope="email"
 ```

@@ -19,7 +19,7 @@ Usage:
   bash get-token.sh --scope "read"     # request specific scopes
   INSECURE=1 bash get-token.sh         # skip TLS verification (self-signed issuer)
 
-Env vars (loaded from ./.env if not already set):
+Env vars (loaded from the script's own directory .env if not already set):
   ISSUER_URL      required — AuthGate issuer, e.g. https://auth.example.com
   CLIENT_ID       required — OAuth client ID
   CLIENT_SECRET   required — OAuth client secret (M2M)

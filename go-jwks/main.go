@@ -100,7 +100,12 @@ func (v *validator) middleware(requiredScopes ...string) func(http.Handler) http
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			raw := bearerToken(r)
 			if raw == "" {
-				writeAuthError(w, "invalid_request", "missing Bearer token")
+				// RFC 6750 §3: if the client didn't provide credentials, don't
+				// include an `error` code — just challenge with a bare Bearer
+				// header and return 401. The `error` attribute is reserved for
+				// cases where credentials WERE supplied but turned out invalid.
+				w.Header().Set("WWW-Authenticate", "Bearer")
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
 				return
 			}
 			info, err := v.verify(r.Context(), raw)
@@ -134,19 +139,15 @@ func bearerToken(r *http.Request) string {
 	return parts[1]
 }
 
-// writeAuthError emits an RFC 6750 compliant Bearer challenge. The status
-// code follows §3.1: 400 for invalid_request, 401 for invalid_token,
-// 403 for insufficient_scope. When scopes are supplied they are advertised
-// via the `scope` attribute so clients know what to request.
+// writeAuthError emits an RFC 6750 compliant Bearer challenge for the two
+// "credentials were supplied but rejected" cases: 401/invalid_token and
+// 403/insufficient_scope (§3.1). The fully missing-credentials case returns
+// a bare Bearer challenge directly from the middleware — see §3.
+// When scopes are supplied they are advertised via the `scope` attribute.
 func writeAuthError(w http.ResponseWriter, code, desc string, scopes ...string) {
-	var status int
-	switch code {
-	case "invalid_request":
-		status = http.StatusBadRequest
-	case "insufficient_scope":
+	status := http.StatusUnauthorized
+	if code == "insufficient_scope" {
 		status = http.StatusForbidden
-	default: // invalid_token and anything else
-		status = http.StatusUnauthorized
 	}
 	challenge := fmt.Sprintf(`Bearer error=%q, error_description=%q`, code, desc)
 	if len(scopes) > 0 {
@@ -245,7 +246,9 @@ func main() {
 func profileHandler(w http.ResponseWriter, r *http.Request) {
 	info, ok := infoFromContext(r.Context())
 	if !ok {
-		writeAuthError(w, "invalid_request", "missing token context")
+		// Defensive: handler mounted without the auth middleware. This is a
+		// server-side misconfiguration, not a client mistake, so 500.
+		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -261,7 +264,9 @@ func profileHandler(w http.ResponseWriter, r *http.Request) {
 func dataHandler(w http.ResponseWriter, r *http.Request) {
 	info, ok := infoFromContext(r.Context())
 	if !ok {
-		writeAuthError(w, "invalid_request", "missing token context")
+		// Defensive: handler mounted without the auth middleware. This is a
+		// server-side misconfiguration, not a client mistake, so 500.
+		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 	msg := "You have email-only access"
