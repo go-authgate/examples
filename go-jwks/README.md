@@ -44,16 +44,19 @@ With JWKS validation, a revoked token stays valid until its `exp`. Keep access-t
 
 ## Environment Variables
 
-| Variable            | Required | Description                                                                                       |
-| ------------------- | -------- | ------------------------------------------------------------------------------------------------- |
-| `ISSUER_URL`        | Yes      | AuthGate issuer URL — must match the `iss` claim and the `issuer` field of the discovery document |
-| `EXPECTED_AUDIENCE` | No       | Required value in the `aud` claim. Leave empty to skip audience enforcement.                      |
+| Variable              | Required | Description                                                                                                          |
+| --------------------- | -------- | -------------------------------------------------------------------------------------------------------------------- |
+| `ISSUER_URL`          | Yes      | AuthGate issuer URL — must match the `iss` claim and the `issuer` field of the discovery document                    |
+| `EXPECTED_AUDIENCE`   | \*       | Required value in the `aud` claim. Mandatory unless `SKIP_AUDIENCE_CHECK=1` is set.                                  |
+| `SKIP_AUDIENCE_CHECK` | \*       | Set to `1` to explicitly disable `aud` enforcement. Only use for issuers that don't emit `aud` on access tokens.     |
+
+\* Exactly one of `EXPECTED_AUDIENCE` or `SKIP_AUDIENCE_CHECK=1` must be set — the server refuses to start otherwise, so a forgotten audience never silently disables validation.
 
 ## Usage
 
 ```bash
 export ISSUER_URL=https://auth.example.com
-export EXPECTED_AUDIENCE=https://api.example.com   # optional
+export EXPECTED_AUDIENCE=https://api.example.com   # or SKIP_AUDIENCE_CHECK=1
 go run main.go
 ```
 
@@ -62,6 +65,8 @@ Or create a `.env` file in this directory:
 ```bash
 ISSUER_URL=https://auth.example.com
 EXPECTED_AUDIENCE=https://api.example.com
+# or, for issuers that don't emit `aud` on access tokens:
+# SKIP_AUDIENCE_CHECK=1
 ```
 
 The server listens on port **8088**.
@@ -125,7 +130,7 @@ curl http://localhost:8088/health
 3. **Per-request validation** — fully local, via `provider.Verifier(...)`:
    - RS256 signature against the cached public key (`alg=none` and HMAC-confusion attacks are rejected by the library)
    - `iss` equals `ISSUER_URL`
-   - `aud` contains `EXPECTED_AUDIENCE` (when set; otherwise `SkipClientIDCheck`)
+   - `aud` contains `EXPECTED_AUDIENCE`, or `SKIP_AUDIENCE_CHECK=1` is explicitly set (fail-closed default — the server refuses to start with `aud` validation silently disabled)
    - `exp` is strict; `nbf` has a built-in 5 min leeway
 4. **Scope enforcement** — middleware checks the space-delimited `scope` claim; handlers may call `info.hasScope("profile")` for finer-grained checks.
 5. **RFC 6750 errors** — `401 invalid_token` / `403 insufficient_scope` responses include a proper `WWW-Authenticate` header.

@@ -22,7 +22,7 @@
 // Usage:
 //
 //	export ISSUER_URL=https://auth.example.com
-//	export EXPECTED_AUDIENCE=https://api.example.com  # optional
+//	export EXPECTED_AUDIENCE=https://api.example.com  # or SKIP_AUDIENCE_CHECK=1
 //	go run main.go
 //
 // Test:
@@ -161,9 +161,18 @@ func main() {
 	_ = godotenv.Load()
 
 	issuerURL := strings.TrimRight(strings.TrimSpace(os.Getenv("ISSUER_URL")), "/")
-	expectedAudience := strings.TrimSpace(os.Getenv("EXPECTED_AUDIENCE")) // optional
+	expectedAudience := strings.TrimSpace(os.Getenv("EXPECTED_AUDIENCE"))
+	// Audience enforcement is required by default. Operators must either set
+	// EXPECTED_AUDIENCE, or opt out explicitly with SKIP_AUDIENCE_CHECK=1 for
+	// issuers whose access tokens don't carry `aud` — so accidental deploys
+	// never silently disable audience validation.
+	skipAudience := strings.TrimSpace(os.Getenv("SKIP_AUDIENCE_CHECK")) == "1"
 	if issuerURL == "" {
 		log.Fatal("Set ISSUER_URL (e.g. https://auth.example.com)")
+	}
+	if expectedAudience == "" && !skipAudience {
+		log.Fatal("Set EXPECTED_AUDIENCE to enforce the `aud` claim, " +
+			"or SKIP_AUDIENCE_CHECK=1 to opt out (some issuers don't emit aud on access tokens)")
 	}
 
 	// Bound discovery so a stalled issuer doesn't hang startup forever.
@@ -190,7 +199,7 @@ func main() {
 	v := &validator{
 		verifier: provider.Verifier(&oidc.Config{
 			ClientID:          expectedAudience,
-			SkipClientIDCheck: expectedAudience == "",
+			SkipClientIDCheck: skipAudience,
 		}),
 		timeout: 5 * time.Second,
 	}
@@ -215,7 +224,7 @@ func main() {
 	if expectedAudience != "" {
 		log.Printf("Audience: %s", expectedAudience)
 	} else {
-		log.Println("Audience: (not enforced — set EXPECTED_AUDIENCE to enable)")
+		log.Println("Audience: DISABLED (SKIP_AUDIENCE_CHECK=1) — tokens accepted for any audience")
 	}
 	log.Println("Listening on :8088 — offline JWKS validation (no AuthGate round-trip per request)")
 	log.Fatal(srv.ListenAndServe())
