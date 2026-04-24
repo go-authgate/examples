@@ -78,16 +78,18 @@ func (v *validator) verify(ctx context.Context, raw string) (*tokenInfo, error) 
 	// Verify does signature + iss/aud/exp/nbf checks. It rejects alg=none
 	// and algorithms inconsistent with the key type, defending against JWT
 	// confusion attacks. nbf has a built-in 5 min leeway; exp is strict.
-	idToken, err := v.verifier.Verify(ctx, raw)
+	// The return type is *oidc.IDToken by library convention, but we're
+	// verifying access tokens — same RFC 7519 claims, same signature path.
+	tok, err := v.verifier.Verify(ctx, raw)
 	if err != nil {
 		return nil, err
 	}
 	var extra extraClaims
-	if err := idToken.Claims(&extra); err != nil {
+	if err := tok.Claims(&extra); err != nil {
 		return nil, fmt.Errorf("decode claims: %w", err)
 	}
 	return &tokenInfo{
-		IDToken: idToken,
+		IDToken: tok,
 		Extra:   extra,
 		scopes:  strings.Fields(extra.Scope),
 	}, nil

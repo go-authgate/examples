@@ -23,7 +23,7 @@ sequenceDiagram
     RS-->>C: 200 OK / 401 / 403
 
     Note over RS,AG: Only on unknown kid (key rotation)
-    RS-->>AG: GET {jwks_uri} (refresh)
+    RS->>AG: GET {jwks_uri} (refresh)
 ```
 
 ## When to Use This vs. Introspection
