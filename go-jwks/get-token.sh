@@ -47,11 +47,13 @@ b64url_decode() {
 
 # Pretty-print a JWT's header + payload as a single JSON object.
 decode_jwt() {
-  local jwt="$1" h p _sig hdr pld
-  IFS='.' read -r h p _sig <<<"$jwt"
-  [[ -n "$h" && -n "$p" ]] || die "not a JWT (expected three dot-separated segments)"
-  hdr=$(b64url_decode "$h") || die "failed to decode JWT header"
-  pld=$(b64url_decode "$p") || die "failed to decode JWT payload"
+  local jwt="$1" hdr pld
+  local -a parts
+  IFS='.' read -r -a parts <<<"$jwt"
+  [[ ${#parts[@]} -eq 3 && -n "${parts[0]}" && -n "${parts[1]}" && -n "${parts[2]}" ]] \
+    || die "not a JWT (expected exactly three dot-separated segments)"
+  hdr=$(b64url_decode "${parts[0]}") || die "failed to decode JWT header"
+  pld=$(b64url_decode "${parts[1]}") || die "failed to decode JWT payload"
   jq -n --argjson header "$hdr" --argjson payload "$pld" \
     '{header: $header, payload: $payload}'
 }
