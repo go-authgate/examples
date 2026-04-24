@@ -26,6 +26,36 @@ sequenceDiagram
     RS->>AG: GET {jwks_uri} (refresh)
 ```
 
+## Pros & Cons of Offline JWKS Validation
+
+### Pros
+
+- **Zero per-request round-trips.** Verification is local signature math — microseconds, not a network call. Introspection typically adds 10–50 ms of latency plus whatever the auth server's tail looks like.
+- **Horizontally scalable.** Stateless — any replica can validate any token. No sticky sessions, no cache coherence between instances.
+- **Survives auth-server outages.** After the first JWKS fetch, resource servers keep validating tokens even if AuthGate is unreachable. Introspection-based services go down with the auth server.
+- **Works at the edge.** CDNs, serverless functions, regions far from the auth server, and air-gapped networks can all validate tokens without egress.
+- **No auth-server load from hot APIs.** A 10 k req/s resource server doesn't translate into 10 k req/s of introspection traffic.
+- **Standard and portable.** Any OIDC provider that publishes `jwks_uri` works — you're not coupling your services to a specific vendor's introspection semantics.
+
+### Cons
+
+- **No immediate revocation.** A leaked, stolen, or logged-out token stays valid until its `exp`. Introspection can honor revocation within one call.
+- **Requires short access-token lifetimes.** To bound the revocation window you have to set TTLs to minutes (typically 5–15) and lean on refresh tokens. Long-lived access tokens + JWKS = risk.
+- **Permission changes lag.** If you demote a user or revoke a scope in the auth server, already-issued tokens still carry the old claims until they expire.
+- **JWT tokens only.** Opaque (non-JWT) access tokens can't be validated offline — introspection is the only option. Some providers emit opaque tokens by default.
+- **Asymmetric signing only.** HS256 (symmetric) would require sharing the signing secret with every resource server — use RS256 / ES256 / PS256.
+- **Token bloat.** JWT access tokens with many claims can push the `Authorization` header past 4–8 KB, which trips some proxies and load balancers.
+- **Clock-skew sensitivity.** `exp` / `nbf` are compared to each resource server's local clock. The `coreos/go-oidc` verifier gives `nbf` a 5-minute leeway but `exp` is strict — clock drift across regions can cause spurious rejects.
+- **First-time-unknown-kid latency.** When the issuer rotates keys, the first request carrying the new `kid` triggers a synchronous JWKS refresh on the resource server.
+- **No centralized audit trail per use.** The auth server sees token issuance but not every use; audit logs have to live at the resource-server layer.
+
+### Common mitigations
+
+- **Keep access-token TTLs short** (5–15 min) so the revocation-lag window is bounded.
+- **Use refresh tokens** to keep the UX smooth despite short access-token lives.
+- **Maintain a small revocation denylist** (e.g. `jti` set with TTL ≤ max access-token lifetime) if you need faster-than-`exp` revocation for specific incidents.
+- **Hybrid: JWKS for read paths, introspection for sensitive mutations** — get latency on the hot path, get revocation on the actions that matter.
+
 ## When to Use This vs. Introspection
 
 | Situation                                    | Prefer                                               |
@@ -34,8 +64,6 @@ sequenceDiagram
 | Multi-region / edge / air-gapped deployments | **JWKS (this example)**                              |
 | Instant revocation required                  | Introspection ([../go-webservice](../go-webservice)) |
 | Opaque (non-JWT) access tokens               | Introspection ([../go-webservice](../go-webservice)) |
-
-With JWKS validation, a revoked token stays valid until its `exp`. Keep access-token lifetimes short (typically 5–15 minutes) and refresh often.
 
 ## Prerequisites
 
