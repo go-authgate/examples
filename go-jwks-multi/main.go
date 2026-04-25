@@ -199,7 +199,10 @@ func (v *multiValidator) verify(ctx context.Context, raw string) (*tokenInfo, er
 // validating the signature. The result must only be used to route to the
 // correct verifier — never to make trust decisions.
 func unverifiedIssuer(raw string) (string, error) {
-	parts := strings.Split(raw, ".")
+	// Cap with SplitN at 4 so a malformed Authorization header packed with
+	// dots cannot blow up our allocations: at most 4 substrings, and a 4th
+	// segment fails the len==3 check before any base64 work happens.
+	parts := strings.SplitN(raw, ".", 4)
 	if len(parts) != 3 {
 		return "", fmt.Errorf("malformed JWT")
 	}
