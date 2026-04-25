@@ -75,7 +75,7 @@ curl -i -H "Authorization: Bearer $TOK" http://localhost:8089/api/profile
 ```bash
 TOK=$(curl -s 'http://127.0.0.1:9001/sign?tenant=swrd')
 curl -i -H "Authorization: Bearer $TOK" http://localhost:8089/api/profile
-# → 401; resource server log: "issuer×tenant reject: iss=...:9001 tenant=\"swrd\""
+# → 401; resource server log: "token verification failed: issuer not permitted for this tenant: iss=...:9001 tenant=\"swrd\" allowed=[oa hwrd]"
 ```
 
 ### Route policy reject — `/api/data` only allows `oa`, `hwrd`
@@ -108,7 +108,7 @@ curl -i -H "Authorization: Bearer $TOK" http://localhost:8089/api/admin
 ```bash
 # Mint a token from the right server but tamper with the prefix on the wire,
 # OR run a third unauthorized issuer on a port not in TRUSTED_ISSUERS.
-# Either way the resource server rejects with 401 + "untrusted iss" in its log.
+# Either way the resource server rejects with 401 + "token verification failed: untrusted issuer: iss=..." in its log.
 ```
 
 ### Expired token (server doesn't auto-rotate; just request a tiny TTL)

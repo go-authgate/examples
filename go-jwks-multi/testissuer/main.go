@@ -40,7 +40,7 @@
 //  4. Try a cross-tenant attack — should be rejected by ISSUER_TENANTS:
 //     TOK=$(curl -s 'http://127.0.0.1:9001/sign?tenant=swrd')
 //     curl -i -H "Authorization: Bearer $TOK" http://localhost:8089/api/profile
-//     # → 401; resource server log shows "issuer×tenant reject"
+//     # → 401; resource server log shows "token verification failed: issuer not permitted for this tenant: ..."
 package main
 
 import (

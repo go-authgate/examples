@@ -275,7 +275,7 @@ HTTP/1.1 401 Unauthorized
 WWW-Authenticate: Bearer error="invalid_token", error_description="invalid token"
 ```
 
-(Server log: `token rejected: untrusted iss="https://attacker.example.com"`.)
+(Server log: `token verification failed: untrusted issuer: iss="https://attacker.example.com"`.)
 
 **Cross-tenant violation** (token from AuthGate A but `tenant=swrd`, which only AuthGate B owns):
 
@@ -284,7 +284,7 @@ HTTP/1.1 401 Unauthorized
 WWW-Authenticate: Bearer error="invalid_token", error_description="invalid token"
 ```
 
-(Server log: `issuer×tenant reject: iss=https://auth-a.example.com tenant="swrd" (allowed for this iss=[oa hwrd])`.)
+(Server log: `token verification failed: issuer not permitted for this tenant: iss="https://auth-a.example.com" tenant="swrd" allowed=[oa hwrd]`.)
 
 **Wrong tenant for route** (`/api/data` allows `oa,hwrd` only, token has `tenant=swrd`):
 

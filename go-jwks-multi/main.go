@@ -384,6 +384,17 @@ func parseIssuerTenants(raw string, verifiers map[string]*oidc.IDTokenVerifier) 
 			return nil, fmt.Errorf("issuer %q is missing from ISSUER_TENANTS (every TRUSTED_ISSUERS entry must be listed when ISSUER_TENANTS is set)", iss)
 		}
 	}
+	// A tenant must be owned by exactly ONE issuer, otherwise the cross-tenant
+	// defense degrades silently: any of the listed issuers can sign for it.
+	tenantOwner := make(map[string]string, len(out))
+	for iss, tenants := range out {
+		for _, t := range tenants {
+			if other, dup := tenantOwner[t]; dup {
+				return nil, fmt.Errorf("tenant %q listed under multiple issuers in ISSUER_TENANTS (%q and %q) — a tenant must be owned by exactly one issuer", t, other, iss)
+			}
+			tenantOwner[t] = iss
+		}
+	}
 	return out, nil
 }
 
