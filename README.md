@@ -13,7 +13,7 @@ Multi-language usage examples for AuthGate authentication (Go, Python, Bash).
 | [python-m2m](python-m2m/)       | Service-to-service       | Client Credentials           | Python   | Python 3.10+, uv |
 | [go-webservice](go-webservice/) | API protection           | Bearer validation            | Go       | Go 1.25+         |
 | [go-jwks](go-jwks/)             | API protection (offline) | JWKS public-key validation   | Go       | Go 1.25+         |
-| [go-jwks-multi](go-jwks-multi/) | API protection, N issuers| JWKS validation, multi-issuer| Go       | Go 1.25+         |
+| [go-jwks-multi](go-jwks-multi/) | API protection (N iss)   | JWKS validation (multi)      | Go       | Go 1.25+         |
 | [go-oidc](go-oidc/)             | Web login (no SDK)       | Auth Code (coreos/go-oidc)   | Go       | Go 1.25+         |
 
 ## Environment Setup
