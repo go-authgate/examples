@@ -9,7 +9,7 @@
 //     auto-discover and cache the public key.
 //   - Each issuer exposes a `/sign` endpoint that mints arbitrary JWTs
 //     signed by THAT issuer's key. You set `iss` implicitly by choosing
-//     the port; everything else (`aud`, `tenant`, `service_account`,
+//     the port; everything else (`aud`, `tenant`, `sa`,
 //     `project`, `scope`, `sub`, `client_id`, `ttl`) is a query param.
 //
 // Why this exists: ../get-token.sh in ../../go-jwks/ talks to a real

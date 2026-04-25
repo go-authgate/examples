@@ -1,6 +1,6 @@
 // Resource server example — accepts AuthGate-issued access tokens from
 // MULTIPLE trusted issuers, validated offline against each issuer's JWKS,
-// with per-route allowlists for tenant `tenant`, `service_account`, and
+// with per-route allowlists for the `tenant`, `service_account`, and
 // `project` custom claims.
 //
 // Use cases:
