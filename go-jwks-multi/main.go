@@ -295,7 +295,11 @@ func buildVerifiers(ctx context.Context, issuers []string, audience string, skip
 	var wg sync.WaitGroup
 	for i, issuer := range issuers {
 		wg.Add(1)
-		go func() {
+		// Pass i and issuer explicitly so the goroutine binds to this
+		// iteration's values. Go 1.22+ already makes the implicit capture
+		// safe, but being explicit means the example reads correctly when
+		// copied into a module on an older go directive.
+		go func(i int, issuer string) {
 			defer wg.Done()
 			provider, err := oidc.NewProvider(ctx, issuer)
 			if err != nil {
@@ -319,7 +323,7 @@ func buildVerifiers(ctx context.Context, issuers []string, audience string, skip
 					SkipClientIDCheck: skipAudience,
 				}),
 			}
-		}()
+		}(i, issuer)
 	}
 	wg.Wait()
 

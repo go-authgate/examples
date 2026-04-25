@@ -248,7 +248,11 @@ func main() {
 	var wg sync.WaitGroup
 	for _, b := range bounds {
 		wg.Add(1)
-		go func() {
+		// Pass b explicitly so the goroutine binds to this iteration's
+		// listener/issuer pair. Go 1.22+ already makes the implicit capture
+		// safe, but being explicit means the example reads correctly when
+		// copied into a module on an older go directive.
+		go func(b bound) {
 			defer wg.Done()
 			srv := &http.Server{
 				Handler:           b.is.handler(),
@@ -261,7 +265,7 @@ func main() {
 			if err := srv.Serve(b.ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				log.Fatalf("issuer %q stopped: %v", b.is.name, err)
 			}
-		}()
+		}(b)
 	}
 	wg.Wait()
 }

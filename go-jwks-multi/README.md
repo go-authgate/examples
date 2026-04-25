@@ -121,7 +121,7 @@ type extraClaims struct {
     Scope          string `json:"scope,omitempty"`
     Tenant         string `json:"tenant,omitempty"`          // tenant short code, e.g. "oa"
     ServiceAccount string `json:"service_account,omitempty"` // OAuth-app-bound SA identifier
-    Project    string `json:"project,omitempty"`    // project the OAuth app belongs to
+    Project        string `json:"project,omitempty"`         // project the OAuth app belongs to
 }
 ```
 
