@@ -367,6 +367,7 @@ func parseIssuerTenants(raw string, verifiers map[string]*oidc.IDTokenVerifier) 
 			for k := range verifiers {
 				canonical = append(canonical, k)
 			}
+			slices.Sort(canonical)
 			return nil, fmt.Errorf("ISSUER_TENANTS issuer %q is not a canonical TRUSTED_ISSUERS entry (canonical issuers after discovery: %v)", iss, canonical)
 		}
 		var tenants []string
@@ -488,6 +489,11 @@ func main() {
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      15 * time.Second,
 		IdleTimeout:       60 * time.Second,
+		// Bound the Authorization header — and therefore the JWT — well below
+		// the Go default of 1 MiB so unverifiedIssuer's pre-signature base64
+		// decode can't be coerced into large allocations. Real access tokens
+		// are typically <2 KiB; 8 KiB leaves generous headroom.
+		MaxHeaderBytes: 8 << 10,
 	}
 
 	log.Printf("Trusted issuers (%d):", len(verifiers))
