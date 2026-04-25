@@ -122,9 +122,19 @@ curl -i -H "Authorization: Bearer $TOK" http://localhost:8089/api/profile
 
 ## Decoding what you signed
 
+JWTs use base64url encoding (`-`/`_` instead of `+`/`/`) and omit padding, so plain `base64 -d` fails on most tokens. The robust path is the helper bundled with the sibling example, which handles URL-safe alphabet + padding for you:
+
 ```bash
 TOK=$(curl -s 'http://127.0.0.1:9001/sign?tenant=oa')
-echo "$TOK" | awk -F. '{print $2}' | base64 -d 2>/dev/null | jq .
+bash ../../go-jwks/get-token.sh --decode "$TOK"
 ```
 
-(BSD `base64` may need `-D`; URL-safe segments may need padding — use `../../go-jwks/get-token.sh --decode <token>` for a robust decoder.)
+If you need a one-liner without the helper, translate the alphabet and pad manually:
+
+```bash
+PAYLOAD=$(echo "$TOK" | awk -F. '{print $2}' | tr '_-' '/+')
+PAD=$(( (4 - ${#PAYLOAD} % 4) % 4 ))
+printf '%s%*s\n' "$PAYLOAD" "$PAD" '' | tr ' ' '=' | base64 -d | jq .
+```
+
+(BSD `base64` may need `-D` instead of `-d`.)

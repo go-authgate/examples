@@ -177,12 +177,17 @@ func (v *multiValidator) verify(ctx context.Context, raw string) (*tokenInfo, er
 	// issuer is only allowed to sign tokens for its declared tenant set.
 	// Stops a compromised issuer A from minting tokens that claim a tenant
 	// owned by issuer B — a real risk with opaque short tenant codes.
+	//
+	// Use tok.Issuer (post-verification) rather than the unverified `iss`
+	// extracted at the top of this function — Verify already proved they
+	// are equal, but reading from the verified result keeps the trust
+	// boundary self-evident in the code.
 	if v.issuerTenants != nil {
-		allowed := v.issuerTenants[iss]
+		allowed := v.issuerTenants[tok.Issuer]
 		if !slices.Contains(allowed, tenant) {
 			return nil, fmt.Errorf(
 				"issuer not permitted for this tenant: iss=%q tenant=%q allowed=%v",
-				iss, extra.Tenant, allowed,
+				tok.Issuer, extra.Tenant, allowed,
 			)
 		}
 	}
@@ -394,10 +399,16 @@ func parseIssuerTenants(raw string, verifiers map[string]*oidc.IDTokenVerifier) 
 	}
 	// A tenant must be owned by exactly ONE issuer, otherwise the cross-tenant
 	// defense degrades silently: any of the listed issuers can sign for it.
+	// Distinguish "same tenant listed twice for the same issuer" (operator
+	// typo, e.g. `oa,oa`) from a true cross-issuer overlap so the error
+	// message points at the actual mistake.
 	tenantOwner := make(map[string]string, len(out))
 	for iss, tenants := range out {
 		for _, t := range tenants {
 			if other, dup := tenantOwner[t]; dup {
+				if other == iss {
+					return nil, fmt.Errorf("tenant %q listed twice for issuer %q in ISSUER_TENANTS — drop the duplicate", t, iss)
+				}
 				return nil, fmt.Errorf("tenant %q listed under multiple issuers in ISSUER_TENANTS (%q and %q) — a tenant must be owned by exactly one issuer", t, other, iss)
 			}
 			tenantOwner[t] = iss
