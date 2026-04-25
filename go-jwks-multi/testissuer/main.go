@@ -28,17 +28,17 @@
 //     go run ./testissuer
 //
 //  2. Point the resource server at them:
-//     TRUSTED_ISSUERS=http://localhost:9001,http://localhost:9002 \
+//     TRUSTED_ISSUERS=http://127.0.0.1:9001,http://127.0.0.1:9002 \
 //     EXPECTED_AUDIENCE=https://api.example.com \
-//     ISSUER_TENANTS='http://localhost:9001=oa,hwrd;http://localhost:9002=swrd,cdomain' \
+//     ISSUER_TENANTS='http://127.0.0.1:9001=oa,hwrd;http://127.0.0.1:9002=swrd,cdomain' \
 //     go run .
 //
 //  3. Mint a token and call the API:
-//     TOK=$(curl -s 'http://localhost:9001/sign?tenant=oa&scope=email+profile&sa=sync-bot@oa.local&project=admin-tools')
+//     TOK=$(curl -s 'http://127.0.0.1:9001/sign?tenant=oa&scope=email+profile&sa=sync-bot@oa.local&project=admin-tools')
 //     curl -i -H "Authorization: Bearer $TOK" http://localhost:8089/api/profile
 //
 //  4. Try a cross-tenant attack — should be rejected by ISSUER_TENANTS:
-//     TOK=$(curl -s 'http://localhost:9001/sign?tenant=swrd')
+//     TOK=$(curl -s 'http://127.0.0.1:9001/sign?tenant=swrd')
 //     curl -i -H "Authorization: Bearer $TOK" http://localhost:8089/api/profile
 //     # → 401; resource server log shows "issuer×tenant reject"
 package main
@@ -96,7 +96,7 @@ func newIssuer(name string, port int) (*issuer, error) {
 	return &issuer{
 		name:    name,
 		port:    port,
-		baseURL: fmt.Sprintf("http://localhost:%d", port),
+		baseURL: fmt.Sprintf("http://127.0.0.1:%d", port),
 		key:     key,
 		kid:     kid,
 		signer:  signer,

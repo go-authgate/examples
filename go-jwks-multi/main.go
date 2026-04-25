@@ -243,7 +243,7 @@ func (v *multiValidator) middleware(rule accessRule) func(http.Handler) http.Han
 			}
 			// Custom-claim allowlist. The reason string is for server logs
 			// only — clients see a generic "invalid_token" so the allowlist
-			// itself isn't probable.
+			// itself isn't disclosed or easily probeable.
 			if reason, ok := rule.checkClaims(info); !ok {
 				log.Printf("policy reject: %s (sub=%s iss=%s)", reason, info.Subject, info.Issuer)
 				writeAuthError(w, "invalid_token", "token not authorized for this resource")

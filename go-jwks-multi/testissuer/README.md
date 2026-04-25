@@ -8,8 +8,8 @@ Spins up two HTTP issuers that **sign your test tokens locally** so you can exer
 
 | Issuer | URL                       | Default allowed tenants    |
 | ------ | ------------------------- | -------------------------- |
-| auth-a | `http://localhost:9001`   | `oa`, `hwrd`               |
-| auth-b | `http://localhost:9002`   | `swrd`, `cdomain`          |
+| auth-a | `http://127.0.0.1:9001`   | `oa`, `hwrd`               |
+| auth-b | `http://127.0.0.1:9002`   | `swrd`, `cdomain`          |
 
 Each issuer:
 
@@ -30,18 +30,18 @@ The startup banner prints a copy-paste-ready env block:
 
 ```txt
 ─── resource server env (copy-paste) ──────────────────────────
-TRUSTED_ISSUERS=http://localhost:9001,http://localhost:9002
+TRUSTED_ISSUERS=http://127.0.0.1:9001,http://127.0.0.1:9002
 EXPECTED_AUDIENCE=https://api.example.com
-ISSUER_TENANTS='http://localhost:9001=oa,hwrd;http://localhost:9002=swrd,cdomain'
+ISSUER_TENANTS='http://127.0.0.1:9001=oa,hwrd;http://127.0.0.1:9002=swrd,cdomain'
 ───────────────────────────────────────────────────────────────
 ```
 
 ```bash
 # Terminal 2 — start the resource server with that env
 cd go-jwks-multi
-TRUSTED_ISSUERS=http://localhost:9001,http://localhost:9002 \
+TRUSTED_ISSUERS=http://127.0.0.1:9001,http://127.0.0.1:9002 \
 EXPECTED_AUDIENCE=https://api.example.com \
-ISSUER_TENANTS='http://localhost:9001=oa,hwrd;http://localhost:9002=swrd,cdomain' \
+ISSUER_TENANTS='http://127.0.0.1:9001=oa,hwrd;http://127.0.0.1:9002=swrd,cdomain' \
 go run .
 ```
 
@@ -58,14 +58,14 @@ go run .
 | `project`   | (omitted)                     | Sets `project` — omit to test fail-closed              |
 | `ttl`       | `300` (seconds)               | `exp` is `iat + ttl`                                   |
 
-`iss` is implicit — it's whichever port you call (`http://localhost:9001` for auth-a, `9002` for auth-b).
+`iss` is implicit — it's whichever port you call (`http://127.0.0.1:9001` for auth-a, `9002` for auth-b).
 
 ## Test scenarios
 
 ### Happy path — auth-a tenant `oa`
 
 ```bash
-TOK=$(curl -s 'http://localhost:9001/sign?tenant=oa&sa=sync-bot@oa.local&project=admin-tools&scope=email+profile')
+TOK=$(curl -s 'http://127.0.0.1:9001/sign?tenant=oa&sa=sync-bot@oa.local&project=admin-tools&scope=email+profile')
 curl -i -H "Authorization: Bearer $TOK" http://localhost:8089/api/profile
 # → 200; response shows issuer=auth-a, tenant=oa, all claims populated
 ```
@@ -73,7 +73,7 @@ curl -i -H "Authorization: Bearer $TOK" http://localhost:8089/api/profile
 ### Cross-tenant attack — auth-a tries to sign for `swrd`
 
 ```bash
-TOK=$(curl -s 'http://localhost:9001/sign?tenant=swrd')
+TOK=$(curl -s 'http://127.0.0.1:9001/sign?tenant=swrd')
 curl -i -H "Authorization: Bearer $TOK" http://localhost:8089/api/profile
 # → 401; resource server log: "issuer×tenant reject: iss=...:9001 tenant=\"swrd\""
 ```
@@ -81,7 +81,7 @@ curl -i -H "Authorization: Bearer $TOK" http://localhost:8089/api/profile
 ### Route policy reject — `/api/data` only allows `oa`, `hwrd`
 
 ```bash
-TOK=$(curl -s 'http://localhost:9002/sign?tenant=swrd&scope=email')   # legitimate auth-b token
+TOK=$(curl -s 'http://127.0.0.1:9002/sign?tenant=swrd&scope=email')   # legitimate auth-b token
 curl -i -H "Authorization: Bearer $TOK" http://localhost:8089/api/data
 # → 401 "token not authorized for this resource"
 # → resource server log: "policy reject: tenant=\"swrd\" not in allowlist"
@@ -90,7 +90,7 @@ curl -i -H "Authorization: Bearer $TOK" http://localhost:8089/api/data
 ### Insufficient scope — `/api/data` requires `email`
 
 ```bash
-TOK=$(curl -s 'http://localhost:9001/sign?tenant=oa&scope=profile')   # email scope missing
+TOK=$(curl -s 'http://127.0.0.1:9001/sign?tenant=oa&scope=profile')   # email scope missing
 curl -i -H "Authorization: Bearer $TOK" http://localhost:8089/api/data
 # → 403; WWW-Authenticate: ... error="insufficient_scope", scope="email"
 ```
@@ -98,7 +98,7 @@ curl -i -H "Authorization: Bearer $TOK" http://localhost:8089/api/data
 ### Missing required custom claim (fail-closed)
 
 ```bash
-TOK=$(curl -s 'http://localhost:9001/sign?tenant=oa')  # no `sa` or `project`
+TOK=$(curl -s 'http://127.0.0.1:9001/sign?tenant=oa')  # no `sa` or `project`
 curl -i -H "Authorization: Bearer $TOK" http://localhost:8089/api/admin
 # → 401; /api/admin requires sync-bot@oa.local SA + admin-tools project
 ```
@@ -114,7 +114,7 @@ curl -i -H "Authorization: Bearer $TOK" http://localhost:8089/api/admin
 ### Expired token (server doesn't auto-rotate; just request a tiny TTL)
 
 ```bash
-TOK=$(curl -s 'http://localhost:9001/sign?tenant=oa&ttl=2')
+TOK=$(curl -s 'http://127.0.0.1:9001/sign?tenant=oa&ttl=2')
 sleep 3
 curl -i -H "Authorization: Bearer $TOK" http://localhost:8089/api/profile
 # → 401; resource server log: "token verification failed: ...token is expired..."
@@ -123,7 +123,7 @@ curl -i -H "Authorization: Bearer $TOK" http://localhost:8089/api/profile
 ## Decoding what you signed
 
 ```bash
-TOK=$(curl -s 'http://localhost:9001/sign?tenant=oa')
+TOK=$(curl -s 'http://127.0.0.1:9001/sign?tenant=oa')
 echo "$TOK" | awk -F. '{print $2}' | base64 -d 2>/dev/null | jq .
 ```
 

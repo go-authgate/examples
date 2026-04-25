@@ -148,7 +148,7 @@ Semantics:
 - **Fail-closed on missing claim** — if a route requires `tenants: []string{"oa"}` and the token has no `tenant` claim, the empty string isn't `"oa"` → reject.
 - **Tenant compares case-insensitively** — allowlist values must be lower-case, token side is folded automatically.
 - **`service_account` / `project` compared exactly** — they're treated as opaque identifiers, no normalization.
-- **Reject reasons go to server log only** — clients see a generic `401 invalid_token` so allowlists aren't probable from outside.
+- **Reject reasons go to server log only** — clients see a generic `401 invalid_token` so allowlists aren't inferable from outside.
 
 ## Cross-Tenant Defense (`ISSUER_TENANTS`)
 
@@ -191,13 +191,13 @@ The [`testissuer/`](testissuer/) sub-tool spins up two fake AuthGates (auth-a on
 go run ./testissuer
 
 # Terminal 2 — start the resource server with the env block testissuer prints
-TRUSTED_ISSUERS=http://localhost:9001,http://localhost:9002 \
+TRUSTED_ISSUERS=http://127.0.0.1:9001,http://127.0.0.1:9002 \
 EXPECTED_AUDIENCE=https://api.example.com \
-ISSUER_TENANTS='http://localhost:9001=oa,hwrd;http://localhost:9002=swrd,cdomain' \
+ISSUER_TENANTS='http://127.0.0.1:9001=oa,hwrd;http://127.0.0.1:9002=swrd,cdomain' \
 go run .
 
 # Terminal 3 — mint tokens and call the API
-TOK=$(curl -s 'http://localhost:9001/sign?tenant=oa&sa=sync-bot@oa.local&project=admin-tools&scope=email+profile')
+TOK=$(curl -s 'http://127.0.0.1:9001/sign?tenant=oa&sa=sync-bot@oa.local&project=admin-tools&scope=email+profile')
 curl -i -H "Authorization: Bearer $TOK" http://localhost:8089/api/profile
 ```
 
