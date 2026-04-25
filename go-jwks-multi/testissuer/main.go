@@ -254,8 +254,12 @@ func main() {
 				Handler:           b.is.handler(),
 				ReadHeaderTimeout: 5 * time.Second,
 			}
+			// Test harness invariant: both issuers must stay up. If one dies
+			// unexpectedly, scenarios that depend on the other become silent
+			// no-ops, so fail loudly instead of carrying on with a half-up
+			// fixture.
 			if err := srv.Serve(b.ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
-				log.Printf("issuer %q stopped: %v", b.is.name, err)
+				log.Fatalf("issuer %q stopped: %v", b.is.name, err)
 			}
 		}()
 	}

@@ -157,11 +157,11 @@ func (v *multiValidator) verify(ctx context.Context, raw string) (*tokenInfo, er
 	}
 	verifier, ok := v.verifiers[iss]
 	if !ok {
-		// Don't echo the issuer back to the client — it's attacker-controlled
-		// in the unverified payload and could be used to probe which issuers
-		// we trust. Log the detail server-side instead.
-		log.Printf("token rejected: untrusted iss=%q", iss)
-		return nil, fmt.Errorf("untrusted issuer")
+		// Carry the iss in the error so the middleware can log it once
+		// server-side; the client still gets a generic "invalid_token"
+		// since `iss` is attacker-controlled in the unverified payload
+		// and could be used to probe which issuers we trust.
+		return nil, fmt.Errorf("untrusted issuer: iss=%q", iss)
 	}
 	tok, err := verifier.Verify(ctx, raw)
 	if err != nil {
@@ -180,9 +180,10 @@ func (v *multiValidator) verify(ctx context.Context, raw string) (*tokenInfo, er
 	if v.issuerTenants != nil {
 		allowed := v.issuerTenants[iss]
 		if !slices.Contains(allowed, tenant) {
-			log.Printf("issuer×tenant reject: iss=%s tenant=%q (allowed for this iss=%v)",
-				iss, extra.Tenant, allowed)
-			return nil, fmt.Errorf("issuer not permitted for this tenant")
+			return nil, fmt.Errorf(
+				"issuer not permitted for this tenant: iss=%q tenant=%q allowed=%v",
+				iss, extra.Tenant, allowed,
+			)
 		}
 	}
 
