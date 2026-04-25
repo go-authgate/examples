@@ -312,7 +312,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "go-authgate", specifier = "==0.2.2" },
-    { name = "python-dotenv", specifier = ">=1.0.0" },
+    { name = "python-dotenv", specifier = ">=1.2.2" },
 ]
 
 [[package]]
