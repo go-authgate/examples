@@ -13,6 +13,7 @@ Multi-language usage examples for AuthGate authentication (Go, Python, Bash).
 | [python-m2m](python-m2m/)       | Service-to-service       | Client Credentials           | Python   | Python 3.10+, uv |
 | [go-webservice](go-webservice/) | API protection           | Bearer validation            | Go       | Go 1.25+         |
 | [go-jwks](go-jwks/)             | API protection (offline) | JWKS public-key validation   | Go       | Go 1.25+         |
+| [go-jwks-multi](go-jwks-multi/) | API protection, N issuers| JWKS validation, multi-issuer| Go       | Go 1.25+         |
 | [go-oidc](go-oidc/)             | Web login (no SDK)       | Auth Code (coreos/go-oidc)   | Go       | Go 1.25+         |
 
 ## Environment Setup
@@ -111,6 +112,15 @@ Alternative resource-server pattern: validates JWT access tokens locally using t
 
 ```bash
 cd go-jwks
+go run main.go
+```
+
+## Multi-Issuer Offline JWKS Validation
+
+Same offline JWKS pattern as [go-jwks](go-jwks/), but the resource server accepts tokens signed by **any of N trusted AuthGates**. Per-token routing by `iss` claim, one cached JWKS per issuer. Use for multi-region deployments, multi-tenant SaaS where each tenant has its own AuthGate, AuthGate-to-AuthGate migrations (both trusted during cutover), or B2B federation.
+
+```bash
+cd go-jwks-multi
 go run main.go
 ```
 
