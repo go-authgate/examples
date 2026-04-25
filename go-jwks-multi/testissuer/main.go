@@ -75,9 +75,16 @@ func newIssuer(name string, port int) (*issuer, error) {
 	if err != nil {
 		return nil, fmt.Errorf("gen key for %s: %w", name, err)
 	}
-	// kid uses startup time so a restart invalidates previously-issued tokens
-	// (matches real key rotation semantics; keeps stale curl sessions honest).
-	kid := fmt.Sprintf("%s-%d", name, time.Now().Unix())
+	// kid must uniquely identify this key so JWKS clients refresh after a
+	// restart. Second-resolution timestamps can collide on rapid restarts
+	// (same second, same name) and would silently let a verifier keep using
+	// the previous public key while the new signer holds a different one —
+	// signature checks would then fail. UnixNano + 8 random bytes is enough.
+	var suffix [8]byte
+	if _, err := rand.Read(suffix[:]); err != nil {
+		return nil, fmt.Errorf("gen kid entropy for %s: %w", name, err)
+	}
+	kid := fmt.Sprintf("%s-%d-%x", name, time.Now().UnixNano(), suffix)
 	signOpts := (&jose.SignerOptions{}).WithType("JWT").WithHeader(jose.HeaderKey("kid"), kid)
 	signer, err := jose.NewSigner(
 		jose.SigningKey{Algorithm: jose.RS256, Key: key},
@@ -216,9 +223,13 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		ln, err := net.Listen("tcp", fmt.Sprintf(":%d", is.port))
+		// Bind explicitly to loopback so this signing oracle never accepts
+		// requests from the local network even if the host's firewall is open.
+		// The README warns "test tool, never expose it" — this enforces it.
+		addr := fmt.Sprintf("127.0.0.1:%d", is.port)
+		ln, err := net.Listen("tcp", addr)
 		if err != nil {
-			log.Fatalf("listen on :%d: %v", is.port, err)
+			log.Fatalf("listen on %s: %v", addr, err)
 		}
 		bounds = append(bounds, bound{is, ln})
 		log.Printf("issuer %q on %s  (kid=%s)", is.name, is.baseURL, is.kid)

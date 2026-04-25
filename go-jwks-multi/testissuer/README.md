@@ -22,7 +22,7 @@ Each issuer:
 
 ```bash
 # Terminal 1 — start the test issuers
-cd examples/go-jwks-multi
+cd go-jwks-multi
 go run ./testissuer
 ```
 
@@ -38,7 +38,7 @@ ISSUER_TENANTS='http://localhost:9001=oa,hwrd;http://localhost:9002=swrd,cdomain
 
 ```bash
 # Terminal 2 — start the resource server with that env
-cd examples/go-jwks-multi
+cd go-jwks-multi
 TRUSTED_ISSUERS=http://localhost:9001,http://localhost:9002 \
 EXPECTED_AUDIENCE=https://api.example.com \
 ISSUER_TENANTS='http://localhost:9001=oa,hwrd;http://localhost:9002=swrd,cdomain' \
