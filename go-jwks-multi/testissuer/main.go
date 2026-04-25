@@ -180,7 +180,7 @@ func (i *issuer) sign(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "sign: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	log.Printf("[%s] signed: sub=%s aud=%s tenant=%q sa=%q project=%q scope=%q ttl=%ds",
+	log.Printf("[%s] signed: sub=%q aud=%q tenant=%q sa=%q project=%q scope=%q ttl=%ds",
 		i.name, sub, aud, tenant, sa, project, scope, ttlSec)
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	fmt.Fprintln(w, token)

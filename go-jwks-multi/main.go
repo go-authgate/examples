@@ -246,7 +246,7 @@ func (v *multiValidator) middleware(rule accessRule) func(http.Handler) http.Han
 			// only — clients see a generic "invalid_token" so the allowlist
 			// itself isn't disclosed or easily probeable.
 			if reason, ok := rule.checkClaims(info); !ok {
-				log.Printf("policy reject: %s (sub=%s iss=%s)", reason, info.Subject, info.Issuer)
+				log.Printf("policy reject: %s (sub=%q iss=%q)", reason, info.Subject, info.Issuer)
 				writeAuthError(w, "invalid_token", "token not authorized for this resource")
 				return
 			}
