@@ -32,7 +32,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -114,9 +116,13 @@ func newMultiVerifier(rawIssuers, audience string, skipAudience bool) (*jwksauth
 }
 
 // parseIssuers splits a comma-separated TRUSTED_ISSUERS value into trimmed,
-// deduplicated issuer URLs. Duplicates are rejected early so the SDK doesn't
-// run redundant discovery and the startup logs stay readable; an all-blank
-// or empty result is rejected explicitly rather than deferred into the SDK.
+// deduplicated issuer URLs. Every entry is treated as an authoritative signing
+// authority, so each one must be an unambiguous identifier: https for
+// production (http allowed only for loopback hosts to keep the local
+// testissuer flow runnable), no userinfo / query / fragment, and no opaque
+// form. Without these guards, a typo like `https://auth.example.com@evil.com`
+// would silently trust evil.com. Duplicates and empty results are rejected up
+// front rather than deferred into the SDK.
 func parseIssuers(raw string) ([]string, error) {
 	parts := strings.Split(raw, ",")
 	out := make([]string, 0, len(parts))
@@ -125,6 +131,9 @@ func parseIssuers(raw string) ([]string, error) {
 		p = strings.TrimSpace(p)
 		if p == "" {
 			continue
+		}
+		if err := validateIssuerURL(p); err != nil {
+			return nil, fmt.Errorf("TRUSTED_ISSUERS entry %q: %w", p, err)
 		}
 		if _, dup := seen[p]; dup {
 			return nil, fmt.Errorf("TRUSTED_ISSUERS contains duplicate issuer: %s", p)
@@ -136,6 +145,41 @@ func parseIssuers(raw string) ([]string, error) {
 		return nil, fmt.Errorf("TRUSTED_ISSUERS must contain at least one non-empty issuer URL")
 	}
 	return out, nil
+}
+
+func validateIssuerURL(raw string) error {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return fmt.Errorf("must be a valid URL: %w", err)
+	}
+	if u.Opaque != "" || u.Hostname() == "" {
+		return fmt.Errorf("must be an absolute URL with a host")
+	}
+	if u.User != nil {
+		return fmt.Errorf("must not contain userinfo (an entry like https://x@evil.com is treated as evil.com)")
+	}
+	if u.RawQuery != "" || u.Fragment != "" {
+		return fmt.Errorf("must not contain a query string or fragment")
+	}
+	switch u.Scheme {
+	case "https":
+		return nil
+	case "http":
+		if isLoopbackHost(u.Hostname()) {
+			return nil
+		}
+		return fmt.Errorf("http is only allowed for loopback hosts (localhost, 127.0.0.1, ::1)")
+	default:
+		return fmt.Errorf("scheme must be https (or http for loopback), got %q", u.Scheme)
+	}
+}
+
+func isLoopbackHost(host string) bool {
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 func logStartup(mv *jwksauth.MultiVerifier, audience string) {
