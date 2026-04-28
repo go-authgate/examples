@@ -30,6 +30,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -98,7 +99,10 @@ func main() {
 }
 
 func newMultiVerifier(rawIssuers, audience string, skipAudience bool) (*jwksauth.MultiVerifier, error) {
-	issuers := splitNonEmpty(rawIssuers, ",")
+	issuers, err := parseIssuers(rawIssuers)
+	if err != nil {
+		return nil, err
+	}
 	// Bound *total* discovery time, not per-issuer — one slow issuer must
 	// not multiply startup time by N. The SDK runs discovery concurrently.
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -109,15 +113,29 @@ func newMultiVerifier(rawIssuers, audience string, skipAudience bool) (*jwksauth
 	return jwksauth.NewMultiVerifier(ctx, issuers, audience)
 }
 
-func splitNonEmpty(s, sep string) []string {
-	parts := strings.Split(s, sep)
+// parseIssuers splits a comma-separated TRUSTED_ISSUERS value into trimmed,
+// deduplicated issuer URLs. Duplicates are rejected early so the SDK doesn't
+// run redundant discovery and the startup logs stay readable; an all-blank
+// or empty result is rejected explicitly rather than deferred into the SDK.
+func parseIssuers(raw string) ([]string, error) {
+	parts := strings.Split(raw, ",")
 	out := make([]string, 0, len(parts))
+	seen := make(map[string]struct{}, len(parts))
 	for _, p := range parts {
-		if p = strings.TrimSpace(p); p != "" {
-			out = append(out, p)
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
 		}
+		if _, dup := seen[p]; dup {
+			return nil, fmt.Errorf("TRUSTED_ISSUERS contains duplicate issuer: %s", p)
+		}
+		seen[p] = struct{}{}
+		out = append(out, p)
 	}
-	return out
+	if len(out) == 0 {
+		return nil, fmt.Errorf("TRUSTED_ISSUERS must contain at least one non-empty issuer URL")
+	}
+	return out, nil
 }
 
 func logStartup(mv *jwksauth.MultiVerifier, audience string) {
