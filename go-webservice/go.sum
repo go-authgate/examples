@@ -1,6 +1,6 @@
 github.com/appleboy/go-httpretry v0.11.0 h1:LI2kFDBI9ghxIip9dJz3uRMEVEwSSOC1bjS177QCi+w=
 github.com/appleboy/go-httpretry v0.11.0/go.mod h1:96v1IO6wg1+S10iFbOM3O8rn2vkFw8+uH4mDPhGoz+E=
-github.com/go-authgate/sdk-go v0.6.1 h1:oQREINU63YckTRdJ+0VBmN6ewFSMXa0D862w8624/jw=
-github.com/go-authgate/sdk-go v0.6.1/go.mod h1:55PLAPuu8GDK0omOwG6lx4c+9/T6dJwZd8kecUueLEk=
+github.com/go-authgate/sdk-go v0.7.0 h1:hUqUMzsDkb+l5EiL+aX2LaFon/3mbjHmxm97qHHHL3k=
+github.com/go-authgate/sdk-go v0.7.0/go.mod h1:Afx/Dbyvf8pw4YeOqVEVdDW2WHhn534Sb2/TaFQktuU=
 github.com/joho/godotenv v1.5.1 h1:7eLL/+HRGLY0ldzfGMeQkb7vMd0as4CfYvUVzLqw0N0=
 github.com/joho/godotenv v1.5.1/go.mod h1:f4LDr5Voq0i2e/R5DDNOoa2zzDfwtkZa6DnEwAbqwq4=
