@@ -33,6 +33,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -114,9 +115,11 @@ func newMultiVerifier(rawIssuers, audience string, skipAudience bool) (*jwksauth
 }
 
 // parseIssuers splits a comma-separated TRUSTED_ISSUERS value into trimmed,
-// deduplicated issuer URLs. Duplicates are rejected early so the SDK doesn't
-// run redundant discovery and the startup logs stay readable; an all-blank
-// or empty result is rejected explicitly rather than deferred into the SDK.
+// deduplicated issuer URLs. Each entry must be an absolute https:// URL —
+// silently trusting `http://` or a typo would defeat JWT signature validation,
+// since the resource server treats every entry as an authoritative signing
+// authority. Duplicates and empty results are rejected up front rather than
+// deferred into the SDK.
 func parseIssuers(raw string) ([]string, error) {
 	parts := strings.Split(raw, ",")
 	out := make([]string, 0, len(parts))
@@ -125,6 +128,10 @@ func parseIssuers(raw string) ([]string, error) {
 		p = strings.TrimSpace(p)
 		if p == "" {
 			continue
+		}
+		u, err := url.Parse(p)
+		if err != nil || u.Scheme != "https" || u.Host == "" {
+			return nil, fmt.Errorf("TRUSTED_ISSUERS entry must be an absolute https URL, got %q", p)
 		}
 		if _, dup := seen[p]; dup {
 			return nil, fmt.Errorf("TRUSTED_ISSUERS contains duplicate issuer: %s", p)

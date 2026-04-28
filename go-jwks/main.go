@@ -76,6 +76,11 @@ func main() {
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      15 * time.Second,
 		IdleTimeout:       60 * time.Second,
+		// Bound the Authorization header — and therefore the JWT — well below
+		// the Go default of 1 MiB so the unverified-iss base64 decode in the
+		// SDK can't be coerced into large allocations. Real access tokens are
+		// typically <2 KiB; 8 KiB leaves generous headroom.
+		MaxHeaderBytes: 8 << 10,
 	}
 
 	log.Printf("Issuer:   %s", v.Issuer())
