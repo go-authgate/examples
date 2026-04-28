@@ -152,7 +152,7 @@ func validateIssuerURL(raw string) error {
 	if err != nil {
 		return fmt.Errorf("must be a valid URL: %w", err)
 	}
-	if u.Opaque != "" || u.Host == "" {
+	if u.Opaque != "" || u.Hostname() == "" {
 		return fmt.Errorf("must be an absolute URL with a host")
 	}
 	if u.User != nil {
