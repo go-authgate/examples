@@ -40,6 +40,7 @@ import (
 	"time"
 
 	"github.com/go-authgate/sdk-go/jwksauth"
+
 	"github.com/joho/godotenv"
 )
 
