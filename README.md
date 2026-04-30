@@ -1,5 +1,9 @@
 # AuthGate Examples
 
+[![Trivy Security Scan](https://github.com/go-authgate/examples/actions/workflows/security.yml/badge.svg?branch=main)](https://github.com/go-authgate/examples/actions/workflows/security.yml)
+[![Goreleaser](https://github.com/go-authgate/examples/actions/workflows/goreleaser.yml/badge.svg?branch=main)](https://github.com/go-authgate/examples/actions/workflows/goreleaser.yml)
+[![CodeQL](https://github.com/go-authgate/examples/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/go-authgate/examples/actions/workflows/codeql.yml)
+
 Multi-language usage examples for AuthGate authentication (Go, Python, Bash).
 
 ## Quick Reference
