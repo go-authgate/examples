@@ -186,9 +186,12 @@ curl http://localhost:8088/health
   "client_id": "your-client-id",
   "audience": ["https://api.example.com"],
   "scope": "email profile",
-  "expires": "2026-04-24T12:34:56Z"
+  "expires": "2026-04-24T12:34:56Z",
+  "domain": "oa"
 }
 ```
+
+`domain` is `""` if AuthGate did not emit a `domain` claim on the token.
 
 **`GET /api/data`** (valid token with `email` scope):
 
