@@ -20,6 +20,7 @@
 //
 //	curl -H "Authorization: Bearer <token>" http://localhost:8088/api/profile
 //	curl -H "Authorization: Bearer <token>" http://localhost:8088/api/data
+//	curl -H "Authorization: Bearer <token>" http://localhost:8088/api/admin
 package main
 
 import (
@@ -66,8 +67,20 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
+	// AccessRule fields are AND-combined and fail-closed: an empty slice
+	// skips that check, a non-empty slice requires the token to match.
+	// Domain/ServiceAccount/Project reject reasons are server-logged only —
+	// clients see a generic 401. Scope failures are reported separately as
+	// 403 insufficient_scope with details in the WWW-Authenticate header.
 	mux.Handle("/api/profile", jwksauth.Middleware(v, jwksauth.AccessRule{})(http.HandlerFunc(profileHandler)))
-	mux.Handle("/api/data", jwksauth.Middleware(v, jwksauth.AccessRule{Scopes: []string{"email"}})(http.HandlerFunc(dataHandler)))
+	mux.Handle("/api/data", jwksauth.Middleware(v, jwksauth.AccessRule{
+		Scopes: []string{"email"},
+	})(http.HandlerFunc(dataHandler)))
+	mux.Handle("/api/admin", jwksauth.Middleware(v, jwksauth.AccessRule{
+		Domains:         []string{"oa"},
+		ServiceAccounts: []string{"sync-bot@oa.local"},
+		Projects:        []string{"admin-tools"},
+	})(http.HandlerFunc(adminHandler)))
 	mux.HandleFunc("/health", healthHandler)
 
 	srv := &http.Server{
@@ -117,6 +130,7 @@ func profileHandler(w http.ResponseWriter, r *http.Request) {
 		"audience":  info.Audience,
 		"scope":     info.Claims.Scope,
 		"expires":   info.Expiry.UTC().Format(time.RFC3339),
+		"domain":    info.Claims.Domain,
 	})
 }
 
@@ -134,6 +148,21 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(map[string]string{
 		"message": msg,
 		"subject": info.Subject,
+	})
+}
+
+func adminHandler(w http.ResponseWriter, r *http.Request) {
+	info, ok := jwksauth.TokenInfoFromContext(r.Context())
+	if !ok {
+		http.Error(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]string{
+		"message":         "admin endpoint",
+		"domain":          info.Claims.Domain,
+		"service_account": info.Claims.ServiceAccount,
+		"project":         info.Claims.Project,
 	})
 }
 

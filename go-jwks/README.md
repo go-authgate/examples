@@ -101,11 +101,21 @@ The server listens on port **8088**.
 
 ## API Endpoints
 
-| Endpoint           | Auth Required | Scopes  | Description                         |
-| ------------------ | ------------- | ------- | ----------------------------------- |
-| `GET /api/profile` | Yes           | Any     | Returns subject/client/scope info   |
-| `GET /api/data`    | Yes           | `email` | Returns data with access-level info |
-| `GET /health`      | No            | —       | Health check                        |
+| Endpoint           | Auth | Scopes  | Domain allowlist | Service-account allowlist | Project allowlist |
+| ------------------ | ---- | ------- | ---------------- | ------------------------- | ----------------- |
+| `GET /api/profile` | Yes  | —       | (any)            | (any)                     | (any)             |
+| `GET /api/data`    | Yes  | `email` | (any)            | (any)                     | (any)             |
+| `GET /api/admin`   | Yes  | —       | `oa`             | `sync-bot@oa.local`       | `admin-tools`     |
+| `GET /health`      | No   | —       | —                | —                         | —                 |
+
+These rules live in `main()` as `jwksauth.AccessRule{...}` literals. The middleware enforces them with the following semantics:
+
+- **Empty slice = "don't check this dimension"** — let routes opt in.
+- **AND-combined** — token must pass every configured allowlist.
+- **Fail-closed on missing claim** — if a route requires `Domains: []string{"oa"}` and the token has no `domain` claim, the empty string isn't `"oa"` → reject.
+- **`Domain` compares case-insensitively** — allowlist values must be lower-case, the token side is folded automatically.
+- **`service_account` / `project` compared exactly** — opaque identifiers, no normalization.
+- **Reject reasons go to server log only** — clients see a generic `401 invalid_token` so allowlists aren't inferable from outside.
 
 ## Testing
 
@@ -147,6 +157,9 @@ curl -H "Authorization: Bearer $TOKEN" http://localhost:8088/api/profile
 # Requires "email" scope
 curl -H "Authorization: Bearer $TOKEN" http://localhost:8088/api/data
 
+# Requires domain=oa, service_account=sync-bot@oa.local, project=admin-tools
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8088/api/admin
+
 # No auth
 curl http://localhost:8088/health
 ```
@@ -160,7 +173,7 @@ curl http://localhost:8088/health
    - `iss` equals `ISSUER_URL`
    - `aud` contains `EXPECTED_AUDIENCE`, or `SKIP_AUDIENCE_CHECK=1` is explicitly set (fail-closed default — the server refuses to start with `aud` validation silently disabled)
    - `exp` is strict; `nbf` has a built-in 5 min leeway
-4. **Scope enforcement** — middleware checks the space-delimited `scope` claim; handlers may call `info.hasScope("profile")` for finer-grained checks.
+4. **Per-route allowlists** — `jwksauth.AccessRule` enforces required scopes plus `domain` / `service_account` / `project` allowlists. Empty slice = "don't check"; non-empty = fail-closed. Handlers may also call `info.HasScope("profile")` for finer-grained checks.
 5. **RFC 6750 errors** — `401 invalid_token` / `403 insufficient_scope` responses include a proper `WWW-Authenticate` header.
 
 ## Example Responses
@@ -173,9 +186,12 @@ curl http://localhost:8088/health
   "client_id": "your-client-id",
   "audience": ["https://api.example.com"],
   "scope": "email profile",
-  "expires": "2026-04-24T12:34:56Z"
+  "expires": "2026-04-24T12:34:56Z",
+  "domain": "oa"
 }
 ```
+
+`domain` is `""` if AuthGate did not emit a `domain` claim on the token.
 
 **`GET /api/data`** (valid token with `email` scope):
 
@@ -183,6 +199,17 @@ curl http://localhost:8088/health
 {
   "message": "You have email-only access",
   "subject": "user-uuid-1234"
+}
+```
+
+**`GET /api/admin`** (token with `domain=oa`, `service_account=sync-bot@oa.local`, `project=admin-tools`):
+
+```json
+{
+  "message": "admin endpoint",
+  "domain": "oa",
+  "service_account": "sync-bot@oa.local",
+  "project": "admin-tools"
 }
 ```
 

@@ -1,29 +1,30 @@
 // Resource server example — accepts AuthGate-issued access tokens from
 // MULTIPLE trusted issuers, validated offline against each issuer's JWKS,
-// with per-route allowlists for the `tenant`, `service_account`, and
-// `project` custom claims. The validation core lives in the SDK's
-// jwksauth package; this file shows configuration + routing.
+// with per-route allowlists drawn from `scope` plus the `domain`,
+// `service_account`, and `project` custom claims (see main() for which
+// routes apply which). The validation core lives in the SDK's jwksauth
+// package; this file shows configuration + routing.
 //
 // Use cases:
 //   - Multi-region: one AuthGate per region; any region's tokens accepted.
-//   - Multi-tenant: one AuthGate per tenant, mounted under a shared API.
+//   - Multi-domain: one AuthGate per domain, mounted under a shared API.
 //   - Migration: accept the old and new AuthGate concurrently during cutover.
 //   - Federation: trust tokens from a partner organization's AuthGate.
 //
-// Why ISSUER_TENANTS matters with short tenant codes:
+// Why ISSUER_DOMAINS matters with short domain codes:
 //
 //	Short codes like "oa" / "hwrd" carry no DNS-style trust boundary, so a
 //	compromised issuer A could otherwise sign a token claiming
-//	`tenant=swrd` (which actually belongs to issuer B). The optional
-//	ISSUER_TENANTS map pins each issuer to the tenants it owns and rejects
-//	cross-tenant claims at the resource server.
+//	`domain=swrd` (which actually belongs to issuer B). The optional
+//	ISSUER_DOMAINS map pins each issuer to the domains it owns and rejects
+//	cross-domain claims at the resource server.
 //
 // Usage:
 //
 //	export TRUSTED_ISSUERS=https://auth-a.example.com,https://auth-b.example.com
 //	export EXPECTED_AUDIENCE=https://api.example.com   # or SKIP_AUDIENCE_CHECK=1
-//	# Optional cross-tenant defense — strongly recommended with short codes:
-//	export ISSUER_TENANTS='https://auth-a.example.com=oa,hwrd;https://auth-b.example.com=swrd,cdomain'
+//	# Optional cross-domain defense — strongly recommended with short codes:
+//	export ISSUER_DOMAINS='https://auth-a.example.com=oa,hwrd;https://auth-b.example.com=swrd,cdomain'
 //	go run main.go
 package main
 
@@ -50,7 +51,7 @@ func main() {
 	rawIssuers := strings.TrimSpace(os.Getenv("TRUSTED_ISSUERS"))
 	expectedAudience := strings.TrimSpace(os.Getenv("EXPECTED_AUDIENCE"))
 	skipAudience := strings.TrimSpace(os.Getenv("SKIP_AUDIENCE_CHECK")) == "1"
-	rawIssuerTenants := strings.TrimSpace(os.Getenv("ISSUER_TENANTS"))
+	rawIssuerDomains := strings.TrimSpace(os.Getenv("ISSUER_DOMAINS"))
 
 	if rawIssuers == "" {
 		log.Fatal("Set TRUSTED_ISSUERS to a comma-separated list of issuer URLs")
@@ -67,15 +68,15 @@ func main() {
 	if err != nil {
 		log.Fatalf("build verifiers: %v", err)
 	}
-	if err := mv.SetIssuerTenants(rawIssuerTenants); err != nil {
-		log.Fatalf("parse ISSUER_TENANTS: %v", err)
+	if err := mv.SetIssuerDomains(rawIssuerDomains); err != nil {
+		log.Fatalf("parse ISSUER_DOMAINS: %v", err)
 	}
 
 	mux := http.NewServeMux()
 	mux.Handle("/api/profile", jwksauth.Middleware(mv, jwksauth.AccessRule{})(http.HandlerFunc(profileHandler)))
 	mux.Handle("/api/data", jwksauth.Middleware(mv, jwksauth.AccessRule{
 		Scopes:  []string{"email"},
-		Tenants: []string{"oa", "hwrd"},
+		Domains: []string{"oa", "hwrd"},
 	})(http.HandlerFunc(dataHandler)))
 	mux.Handle("/api/admin", jwksauth.Middleware(mv, jwksauth.AccessRule{
 		ServiceAccounts: []string{"sync-bot@oa.local"},
@@ -184,14 +185,14 @@ func isLoopbackHost(host string) bool {
 }
 
 func logStartup(mv *jwksauth.MultiVerifier, audience string) {
-	tenants := mv.IssuerTenants()
+	domains := mv.IssuerDomains()
 	issuers := mv.Issuers()
 	log.Printf("Trusted issuers (%d):", len(issuers))
 	for _, iss := range issuers {
-		if t := tenants[iss]; t != nil {
-			log.Printf("  - %s  →  tenants: %v", iss, t)
+		if d := domains[iss]; d != nil {
+			log.Printf("  - %s  →  domains: %v", iss, d)
 		} else {
-			log.Printf("  - %s  →  tenants: (any — ISSUER_TENANTS not set)", iss)
+			log.Printf("  - %s  →  domains: (any — ISSUER_DOMAINS not set)", iss)
 		}
 	}
 	if audience != "" {
@@ -215,7 +216,7 @@ func profileHandler(w http.ResponseWriter, r *http.Request) {
 		"client_id":       info.Claims.ClientID,
 		"audience":        info.Audience,
 		"scope":           info.Claims.Scope,
-		"tenant":          info.Claims.Tenant,
+		"domain":          info.Claims.Domain,
 		"service_account": info.Claims.ServiceAccount,
 		"project":         info.Claims.Project,
 		"expires":         info.Expiry.UTC().Format(time.RFC3339),
@@ -237,7 +238,7 @@ func dataHandler(w http.ResponseWriter, r *http.Request) {
 		"message": msg,
 		"issuer":  info.Issuer,
 		"subject": info.Subject,
-		"tenant":  info.Claims.Tenant,
+		"domain":  info.Claims.Domain,
 	})
 }
 
@@ -250,6 +251,7 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]string{
 		"message":         "admin endpoint",
+		"domain":          info.Claims.Domain,
 		"service_account": info.Claims.ServiceAccount,
 		"project":         info.Claims.Project,
 	})

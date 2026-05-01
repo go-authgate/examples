@@ -9,13 +9,13 @@
 //     auto-discover and cache the public key.
 //   - Each issuer exposes a `/sign` endpoint that mints arbitrary JWTs
 //     signed by THAT issuer's key. You set `iss` implicitly by choosing
-//     the port; everything else (`aud`, `tenant`, `sa`,
+//     the port; everything else (`aud`, `domain`, `sa`,
 //     `project`, `scope`, `sub`, `client_id`, `ttl`) is a query param.
 //
 // Why this exists: ../get-token.sh in ../../go-jwks/ talks to a real
-// AuthGate via Client Credentials. For multi-issuer + multi-tenant
+// AuthGate via Client Credentials. For multi-issuer + multi-domain
 // testing you typically need to mint tokens with arbitrary `iss` and
-// `tenant` to exercise both happy paths and security paths (cross-tenant
+// `domain` to exercise both happy paths and security paths (cross-domain
 // rejection, untrusted issuer, etc.) without standing up two real
 // AuthGates.
 //
@@ -30,17 +30,17 @@
 //  2. Point the resource server at them:
 //     TRUSTED_ISSUERS=http://127.0.0.1:9001,http://127.0.0.1:9002 \
 //     EXPECTED_AUDIENCE=https://api.example.com \
-//     ISSUER_TENANTS='http://127.0.0.1:9001=oa,hwrd;http://127.0.0.1:9002=swrd,cdomain' \
+//     ISSUER_DOMAINS='http://127.0.0.1:9001=oa,hwrd;http://127.0.0.1:9002=swrd,cdomain' \
 //     go run .
 //
 //  3. Mint a token and call the API:
-//     TOK=$(curl -s 'http://127.0.0.1:9001/sign?tenant=oa&scope=email+profile&sa=sync-bot@oa.local&project=admin-tools')
+//     TOK=$(curl -s 'http://127.0.0.1:9001/sign?domain=oa&scope=email+profile&sa=sync-bot@oa.local&project=admin-tools')
 //     curl -i -H "Authorization: Bearer $TOK" http://localhost:8089/api/profile
 //
-//  4. Try a cross-tenant attack — should be rejected by ISSUER_TENANTS:
-//     TOK=$(curl -s 'http://127.0.0.1:9001/sign?tenant=swrd')
+//  4. Try a cross-domain attack — should be rejected by ISSUER_DOMAINS:
+//     TOK=$(curl -s 'http://127.0.0.1:9001/sign?domain=swrd')
 //     curl -i -H "Authorization: Bearer $TOK" http://localhost:8089/api/profile
-//     # → 401; resource server log shows "token verification failed: issuer not permitted for this tenant: ..."
+//     # → 401; resource server log shows "token verification failed: issuer not permitted for this domain: ..."
 package main
 
 import (
@@ -143,7 +143,7 @@ func (i *issuer) sign(w http.ResponseWriter, r *http.Request) {
 	sub := def(q.Get("sub"), "test-user-1")
 	scope := def(q.Get("scope"), "email profile")
 	clientID := def(q.Get("client_id"), "test-client")
-	tenant := q.Get("tenant")
+	domain := q.Get("domain")
 	sa := q.Get("sa")
 	project := q.Get("project")
 	ttlSec, err := strconv.Atoi(def(q.Get("ttl"), "300"))
@@ -165,8 +165,8 @@ func (i *issuer) sign(w http.ResponseWriter, r *http.Request) {
 	// Custom claims are only set when explicitly requested, so you can mint
 	// "missing claim" tokens to verify the resource server's fail-closed
 	// behavior on routes that require them.
-	if tenant != "" {
-		claims["tenant"] = tenant
+	if domain != "" {
+		claims["domain"] = domain
 	}
 	if sa != "" {
 		claims["service_account"] = sa
@@ -180,8 +180,8 @@ func (i *issuer) sign(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "sign: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	log.Printf("[%s] signed: sub=%q aud=%q tenant=%q sa=%q project=%q scope=%q ttl=%ds",
-		i.name, sub, aud, tenant, sa, project, scope, ttlSec)
+	log.Printf("[%s] signed: sub=%q aud=%q domain=%q sa=%q project=%q scope=%q ttl=%ds",
+		i.name, sub, aud, domain, sa, project, scope, ttlSec)
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	fmt.Fprintln(w, token)
 }
@@ -191,7 +191,7 @@ func (i *issuer) index(w http.ResponseWriter, _ *http.Request) {
 	fmt.Fprintf(w, "test issuer %q at %s\n\nendpoints:\n"+
 		"  GET /.well-known/openid-configuration\n"+
 		"  GET /jwks.json\n"+
-		"  GET /sign?aud=...&sub=...&tenant=...&sa=...&project=...&scope=...&ttl=...\n",
+		"  GET /sign?aud=...&sub=...&domain=...&sa=...&project=...&scope=...&ttl=...\n",
 		i.name, i.baseURL)
 }
 
@@ -242,7 +242,7 @@ func main() {
 	log.Println("─── resource server env (copy-paste) ──────────────────────────")
 	log.Printf("TRUSTED_ISSUERS=%s", strings.Join(urls, ","))
 	log.Printf("EXPECTED_AUDIENCE=https://api.example.com")
-	log.Printf("ISSUER_TENANTS='%s=oa,hwrd;%s=swrd,cdomain'", urls[0], urls[1])
+	log.Printf("ISSUER_DOMAINS='%s=oa,hwrd;%s=swrd,cdomain'", urls[0], urls[1])
 	log.Println("───────────────────────────────────────────────────────────────")
 
 	var wg sync.WaitGroup
