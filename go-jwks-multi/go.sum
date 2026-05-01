@@ -1,7 +1,7 @@
 github.com/coreos/go-oidc/v3 v3.18.0 h1:V9orjXynvu5wiC9SemFTWnG4F45v403aIcjWo0d41+A=
 github.com/coreos/go-oidc/v3 v3.18.0/go.mod h1:DYCf24+ncYi+XkIH97GY1+dqoRlbaSI26KVTCI9SrY4=
-github.com/go-authgate/sdk-go v0.7.0 h1:hUqUMzsDkb+l5EiL+aX2LaFon/3mbjHmxm97qHHHL3k=
-github.com/go-authgate/sdk-go v0.7.0/go.mod h1:Afx/Dbyvf8pw4YeOqVEVdDW2WHhn534Sb2/TaFQktuU=
+github.com/go-authgate/sdk-go v0.9.0 h1:VgQNjcKXtMONNiVf4coC/J69H78CkTt3CJ8maiQSf6Y=
+github.com/go-authgate/sdk-go v0.9.0/go.mod h1:Afx/Dbyvf8pw4YeOqVEVdDW2WHhn534Sb2/TaFQktuU=
 github.com/go-jose/go-jose/v4 v4.1.4 h1:moDMcTHmvE6Groj34emNPLs/qtYXRVcd6S7NHbHz3kA=
 github.com/go-jose/go-jose/v4 v4.1.4/go.mod h1:x4oUasVrzR7071A4TnHLGSPpNOm2a21K9Kf04k1rs08=
 github.com/joho/godotenv v1.5.1 h1:7eLL/+HRGLY0ldzfGMeQkb7vMd0as4CfYvUVzLqw0N0=

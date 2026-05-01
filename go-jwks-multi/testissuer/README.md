@@ -1,12 +1,12 @@
 # testissuer — local fake AuthGates for `go-jwks-multi`
 
-Spins up two HTTP issuers that **sign your test tokens locally** so you can exercise the resource server's multi-issuer + multi-tenant code paths (happy path, cross-tenant defense, route policy reject) without standing up real AuthGates.
+Spins up two HTTP issuers that **sign your test tokens locally** so you can exercise the resource server's multi-issuer + multi-domain code paths (happy path, cross-domain defense, route policy reject) without standing up real AuthGates.
 
 > ⚠️ This server signs **anything** you ask for. It's a test tool — bind it to localhost only, never expose it.
 
 ## What you get
 
-| Issuer | URL                       | Default allowed tenants    |
+| Issuer | URL                       | Default allowed domains    |
 | ------ | ------------------------- | -------------------------- |
 | auth-a | `http://127.0.0.1:9001`   | `oa`, `hwrd`               |
 | auth-b | `http://127.0.0.1:9002`   | `swrd`, `cdomain`          |
@@ -32,7 +32,7 @@ The startup banner prints a copy-paste-ready env block:
 ─── resource server env (copy-paste) ──────────────────────────
 TRUSTED_ISSUERS=http://127.0.0.1:9001,http://127.0.0.1:9002
 EXPECTED_AUDIENCE=https://api.example.com
-ISSUER_TENANTS='http://127.0.0.1:9001=oa,hwrd;http://127.0.0.1:9002=swrd,cdomain'
+ISSUER_DOMAINS='http://127.0.0.1:9001=oa,hwrd;http://127.0.0.1:9002=swrd,cdomain'
 ───────────────────────────────────────────────────────────────
 ```
 
@@ -41,7 +41,7 @@ ISSUER_TENANTS='http://127.0.0.1:9001=oa,hwrd;http://127.0.0.1:9002=swrd,cdomain
 cd go-jwks-multi
 TRUSTED_ISSUERS=http://127.0.0.1:9001,http://127.0.0.1:9002 \
 EXPECTED_AUDIENCE=https://api.example.com \
-ISSUER_TENANTS='http://127.0.0.1:9001=oa,hwrd;http://127.0.0.1:9002=swrd,cdomain' \
+ISSUER_DOMAINS='http://127.0.0.1:9001=oa,hwrd;http://127.0.0.1:9002=swrd,cdomain' \
 go run .
 ```
 
@@ -53,7 +53,7 @@ go run .
 | `sub`       | `test-user-1`                 | Sets the `sub` claim                                   |
 | `scope`     | `email profile`               | Space-separated; URL-encode space as `+`               |
 | `client_id` | `test-client`                 | Sets the `client_id` claim                             |
-| `tenant`    | (omitted)                     | Custom claim — omit to test fail-closed behavior       |
+| `domain`    | (omitted)                     | Custom claim — omit to test fail-closed behavior       |
 | `sa`        | (omitted)                     | Sets `service_account` — omit to test fail-closed      |
 | `project`   | (omitted)                     | Sets `project` — omit to test fail-closed              |
 | `ttl`       | `300` (seconds)               | `exp` is `iat + ttl`                                   |
@@ -62,35 +62,35 @@ go run .
 
 ## Test scenarios
 
-### Happy path — auth-a tenant `oa`
+### Happy path — auth-a domain `oa`
 
 ```bash
-TOK=$(curl -s 'http://127.0.0.1:9001/sign?tenant=oa&sa=sync-bot@oa.local&project=admin-tools&scope=email+profile')
+TOK=$(curl -s 'http://127.0.0.1:9001/sign?domain=oa&sa=sync-bot@oa.local&project=admin-tools&scope=email+profile')
 curl -i -H "Authorization: Bearer $TOK" http://localhost:8089/api/profile
-# → 200; response shows issuer=auth-a, tenant=oa, all claims populated
+# → 200; response shows issuer=auth-a, domain=oa, all claims populated
 ```
 
-### Cross-tenant attack — auth-a tries to sign for `swrd`
+### Cross-domain attack — auth-a tries to sign for `swrd`
 
 ```bash
-TOK=$(curl -s 'http://127.0.0.1:9001/sign?tenant=swrd')
+TOK=$(curl -s 'http://127.0.0.1:9001/sign?domain=swrd')
 curl -i -H "Authorization: Bearer $TOK" http://localhost:8089/api/profile
-# → 401; resource server log: "token verification failed: issuer not permitted for this tenant: iss=...:9001 tenant=\"swrd\" allowed=[oa hwrd]"
+# → 401; resource server log: "token verification failed: issuer not permitted for this domain: iss=...:9001 domain=\"swrd\" allowed=[oa hwrd]"
 ```
 
 ### Route policy reject — `/api/data` only allows `oa`, `hwrd`
 
 ```bash
-TOK=$(curl -s 'http://127.0.0.1:9002/sign?tenant=swrd&scope=email')   # legitimate auth-b token
+TOK=$(curl -s 'http://127.0.0.1:9002/sign?domain=swrd&scope=email')   # legitimate auth-b token
 curl -i -H "Authorization: Bearer $TOK" http://localhost:8089/api/data
 # → 401 "token not authorized for this resource"
-# → resource server log: "policy reject: tenant=\"swrd\" not in allowlist"
+# → resource server log: "policy reject: domain=\"swrd\" not in allowlist"
 ```
 
 ### Insufficient scope — `/api/data` requires `email`
 
 ```bash
-TOK=$(curl -s 'http://127.0.0.1:9001/sign?tenant=oa&scope=profile')   # email scope missing
+TOK=$(curl -s 'http://127.0.0.1:9001/sign?domain=oa&scope=profile')   # email scope missing
 curl -i -H "Authorization: Bearer $TOK" http://localhost:8089/api/data
 # → 403; WWW-Authenticate: ... error="insufficient_scope", scope="email"
 ```
@@ -98,7 +98,7 @@ curl -i -H "Authorization: Bearer $TOK" http://localhost:8089/api/data
 ### Missing required custom claim (fail-closed)
 
 ```bash
-TOK=$(curl -s 'http://127.0.0.1:9001/sign?tenant=oa')  # no `sa` or `project`
+TOK=$(curl -s 'http://127.0.0.1:9001/sign?domain=oa')  # no `sa` or `project`
 curl -i -H "Authorization: Bearer $TOK" http://localhost:8089/api/admin
 # → 401; /api/admin requires sync-bot@oa.local SA + admin-tools project
 ```
@@ -114,7 +114,7 @@ curl -i -H "Authorization: Bearer $TOK" http://localhost:8089/api/admin
 ### Expired token (server doesn't auto-rotate; just request a tiny TTL)
 
 ```bash
-TOK=$(curl -s 'http://127.0.0.1:9001/sign?tenant=oa&ttl=2')
+TOK=$(curl -s 'http://127.0.0.1:9001/sign?domain=oa&ttl=2')
 sleep 3
 curl -i -H "Authorization: Bearer $TOK" http://localhost:8089/api/profile
 # → 401; resource server log: "token verification failed: ...token is expired..."
@@ -125,7 +125,7 @@ curl -i -H "Authorization: Bearer $TOK" http://localhost:8089/api/profile
 JWTs use base64url encoding (`-`/`_` instead of `+`/`/`) and omit padding, so plain `base64 -d` fails on most tokens. The robust path is the helper bundled with the sibling example, which handles URL-safe alphabet + padding for you:
 
 ```bash
-TOK=$(curl -s 'http://127.0.0.1:9001/sign?tenant=oa')
+TOK=$(curl -s 'http://127.0.0.1:9001/sign?domain=oa')
 bash ../../go-jwks/get-token.sh --decode "$TOK"
 ```
 
