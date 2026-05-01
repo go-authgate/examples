@@ -69,7 +69,9 @@ func main() {
 	mux := http.NewServeMux()
 	// AccessRule fields are AND-combined and fail-closed: an empty slice
 	// skips that check, a non-empty slice requires the token to match.
-	// Reject reasons are server-logged only; clients see a generic 401.
+	// Domain/ServiceAccount/Project reject reasons are server-logged only —
+	// clients see a generic 401. Scope failures are reported separately as
+	// 403 insufficient_scope with details in the WWW-Authenticate header.
 	mux.Handle("/api/profile", jwksauth.Middleware(v, jwksauth.AccessRule{})(http.HandlerFunc(profileHandler)))
 	mux.Handle("/api/data", jwksauth.Middleware(v, jwksauth.AccessRule{
 		Scopes: []string{"email"},
