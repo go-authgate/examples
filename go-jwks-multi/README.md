@@ -109,7 +109,7 @@ The server listens on port **8089** (one off from `go-jwks`'s 8088 so you can ru
 | `GET /api/admin`   | Yes  | —       | (any)            | `sync-bot@oa.local`       | `admin-tools`     |
 | `GET /health`      | No   | —       | —                | —                         | —                 |
 
-These rules live in `main()` as `accessRule{...}` literals — replace them with values from your config service if rules need to change without a redeploy. Responses include `issuer` + `domain` so you can confirm which AuthGate signed the token and which domain it carries.
+These rules live in `main()` as `jwksauth.AccessRule{...}` literals — replace them with values from your config service if rules need to change without a redeploy. Responses include `issuer` + `domain` so you can confirm which AuthGate signed the token and which domain it carries.
 
 ## Custom-Claim Validation (`domain` / `service_account` / `project`)
 
@@ -127,25 +127,25 @@ type extraClaims struct {
 
 If your AuthGate uses **namespaced claims** (`https://authgate.example.com/domain`), update the `json:` tags accordingly. The verifier ignores tags it doesn't recognize, so unused fields stay empty without errors.
 
-Per-route policy is expressed via `accessRule`:
+Per-route policy is expressed via `jwksauth.AccessRule`:
 
 ```go
-mux.Handle("/api/profile", v.middleware(accessRule{})(...))           // any valid token
-mux.Handle("/api/data", v.middleware(accessRule{
-    scopes:  []string{"email"},
-    domains: []string{"oa", "hwrd"},                                  // OA + HWRD domains only
-})(...))
-mux.Handle("/api/admin", v.middleware(accessRule{
-    serviceAccounts: []string{"sync-bot@oa.local"},
-    projects:        []string{"admin-tools"},
-})(...))
+mux.Handle("/api/profile", jwksauth.Middleware(mv, jwksauth.AccessRule{})(http.HandlerFunc(profileHandler))) // any valid token
+mux.Handle("/api/data", jwksauth.Middleware(mv, jwksauth.AccessRule{
+    Scopes:  []string{"email"},
+    Domains: []string{"oa", "hwrd"},                                  // OA + HWRD domains only
+})(http.HandlerFunc(dataHandler)))
+mux.Handle("/api/admin", jwksauth.Middleware(mv, jwksauth.AccessRule{
+    ServiceAccounts: []string{"sync-bot@oa.local"},
+    Projects:        []string{"admin-tools"},
+})(http.HandlerFunc(adminHandler)))
 ```
 
 Semantics:
 
 - **Empty slice = "don't check this dimension"** — let users opt in per route.
 - **AND-combined** — token must pass every configured allowlist.
-- **Fail-closed on missing claim** — if a route requires `domains: []string{"oa"}` and the token has no `domain` claim, the empty string isn't `"oa"` → reject.
+- **Fail-closed on missing claim** — if a route requires `Domains: []string{"oa"}` and the token has no `domain` claim, the empty string isn't `"oa"` → reject.
 - **Domain compares case-insensitively** — allowlist values must be lower-case, token side is folded automatically.
 - **`service_account` / `project` compared exactly** — they're treated as opaque identifiers, no normalization.
 - **Reject reasons go to server log only** — clients see a generic `401 invalid_token` so allowlists aren't inferable from outside.
@@ -174,8 +174,8 @@ When set, after `Verify()` succeeds, the middleware looks up the **issuer that s
 | Token from trusted issuer A but `iss` claims to be B                          | `Verify()` re-checks `iss` against the per-issuer verifier |
 | Token for a different audience reused against this API                        | `aud` check (`EXPECTED_AUDIENCE`)                          |
 | Compromised issuer A signs a token claiming `domain=swrd` (owned by issuer B) | `ISSUER_DOMAINS` cross-domain map                          |
-| Valid token from domain `swrd` calling a route restricted to domain `oa`      | Per-route `accessRule.domains`                             |
-| Valid SA token reused on a route requiring a different SA / project           | Per-route `accessRule.serviceAccounts` / `projects`        |
+| Valid token from domain `swrd` calling a route restricted to domain `oa`      | Per-route `jwksauth.AccessRule.Domains`                    |
+| Valid SA token reused on a route requiring a different SA / project           | Per-route `jwksauth.AccessRule.ServiceAccounts` / `Projects` |
 | Replay of revoked token before `exp`                                          | **Not defended** — keep access-token TTLs short (5–15 min) |
 
 ## Testing
@@ -231,7 +231,7 @@ Note: real AuthGate-issued tokens carry whatever `domain` / `service_account` / 
 2. **Per-issuer verifier** — a `map[issuer]*oidc.IDTokenVerifier` is built once and is read-only on the hot path (no locking).
 3. **Per-request routing** — the middleware decodes the JWT payload (unverified) to read `iss`, looks up the matching verifier, and calls `Verify`. The verifier authoritatively checks signature, `iss`, `aud`, `exp`, `nbf`.
 4. **Cross-domain pin (optional)** — if `ISSUER_DOMAINS` is set, the validated token's `domain` claim is checked against the allowlist for the issuer that signed it. Stops a compromised issuer from minting tokens for a domain it doesn't own.
-5. **Per-route allowlists** — `accessRule` enforces required scopes plus `domain` / `service_account` / `project` allowlists. Empty slice = "don't check"; non-empty = fail-closed.
+5. **Per-route allowlists** — `jwksauth.AccessRule` enforces required scopes plus `domain` / `service_account` / `project` allowlists. Empty slice = "don't check"; non-empty = fail-closed.
 6. **Untrusted issuer / failed allowlist** → `401 invalid_token` (details logged server-side, never echoed in the response).
 7. **Key rotation** — on a token carrying an unknown `kid`, the relevant issuer's JWKS is refreshed transparently.
 8. **RFC 6750 errors** — `WWW-Authenticate` challenges for missing/invalid token and insufficient scope (the latter advertises the missing scope).
@@ -246,8 +246,8 @@ Note: real AuthGate-issued tokens carry whatever `domain` / `service_account` / 
   provider.Verifier(&oidc.Config{ClientID: perIssuerAud})
   ```
 
-- **Per-issuer claim policies.** The `issuerDomains` map proves the pattern: the same idea (`map[issuer][]string`) extends to per-issuer allowed projects or service accounts.
-- **Dynamic allowlists.** Replace the hard-coded `accessRule` literals in `main()` with a lookup against your config service / database, and cache the result so the hot path stays allocation-free.
+- **Per-issuer claim policies.** `mv.IssuerDomains()` proves the pattern: the same `map[issuer][]string` shape extends to per-issuer allowed projects or service accounts.
+- **Dynamic allowlists.** Replace the hard-coded `jwksauth.AccessRule` literals in `main()` with a lookup against your config service / database, and cache the result so the hot path stays allocation-free.
 - **Namespaced claims.** Update the `json:` tags on `extraClaims` to match your IdP (e.g. `https://authgate.example.com/domain`).
 
 ## Example Responses

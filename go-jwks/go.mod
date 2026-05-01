@@ -1,6 +1,6 @@
 module github.com/go-authgate/examples/go-jwks
 
-go 1.25.9
+go 1.25.8
 
 require (
 	github.com/go-authgate/sdk-go v0.9.0
