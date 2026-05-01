@@ -1,8 +1,9 @@
 // Resource server example — accepts AuthGate-issued access tokens from
 // MULTIPLE trusted issuers, validated offline against each issuer's JWKS,
-// with per-route allowlists for the `domain`, `service_account`, and
-// `project` custom claims. The validation core lives in the SDK's
-// jwksauth package; this file shows configuration + routing.
+// with per-route allowlists drawn from `scope` plus the `domain`,
+// `service_account`, and `project` custom claims (see main() for which
+// routes apply which). The validation core lives in the SDK's jwksauth
+// package; this file shows configuration + routing.
 //
 // Use cases:
 //   - Multi-region: one AuthGate per region; any region's tokens accepted.
@@ -250,6 +251,7 @@ func adminHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]string{
 		"message":         "admin endpoint",
+		"domain":          info.Claims.Domain,
 		"service_account": info.Claims.ServiceAccount,
 		"project":         info.Claims.Project,
 	})
