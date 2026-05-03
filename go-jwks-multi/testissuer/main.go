@@ -60,6 +60,7 @@ import (
 
 	jose "github.com/go-jose/go-jose/v4"
 	"github.com/go-jose/go-jose/v4/jwt"
+	"github.com/joho/godotenv"
 )
 
 // defaultPrivateClaimPrefix matches the AuthGate server and SDK default
@@ -219,6 +220,12 @@ func def(v, d string) string {
 }
 
 func main() {
+	// Load a .env from the working directory so the testissuer and the
+	// resource server can share a single config file when invoked as
+	// `go run ./testissuer` from the go-jwks-multi/ root. Missing file is
+	// not an error — real env vars still apply.
+	_ = godotenv.Load()
+
 	// JWT_PRIVATE_CLAIM_PREFIX must agree byte-for-byte with the resource
 	// server's matching env var; an empty / whitespace-only value falls
 	// back to the SDK default.

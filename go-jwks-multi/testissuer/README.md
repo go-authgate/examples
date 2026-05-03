@@ -68,6 +68,12 @@ covering `Domain` / `ServiceAccount` / `Project` fails closed. The
 testissuer's startup banner echoes the resolved prefix so you can spot
 mismatches at a glance.
 
+The testissuer also reads a `.env` file from its working directory at
+startup. Running `go run ./testissuer` from `go-jwks-multi/` therefore
+shares the parent `go-jwks-multi/.env` with the resource server, so a
+single `JWT_PRIVATE_CLAIM_PREFIX=acme` line keeps both ends in lock-step
+without exporting it on every shell.
+
 ## Test scenarios
 
 ### Happy path — auth-a domain `oa`
