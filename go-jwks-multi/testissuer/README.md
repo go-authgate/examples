@@ -47,18 +47,26 @@ go run .
 
 ## `/sign` query parameters
 
-| Param       | Default                       | Notes                                                  |
-| ----------- | ----------------------------- | ------------------------------------------------------ |
-| `aud`       | `https://api.example.com`     | Sets the `aud` claim                                   |
-| `sub`       | `test-user-1`                 | Sets the `sub` claim                                   |
-| `scope`     | `email profile`               | Space-separated; URL-encode space as `+`               |
-| `client_id` | `test-client`                 | Sets the `client_id` claim                             |
-| `domain`    | (omitted)                     | Custom claim — omit to test fail-closed behavior       |
-| `sa`        | (omitted)                     | Sets `service_account` — omit to test fail-closed      |
-| `project`   | (omitted)                     | Sets `project` — omit to test fail-closed              |
-| `ttl`       | `300` (seconds)               | `exp` is `iat + ttl`                                   |
+| Param       | Default                       | Notes                                                                                                                  |
+| ----------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `aud`       | `https://api.example.com`     | Sets the `aud` claim                                                                                                   |
+| `sub`       | `test-user-1`                 | Sets the `sub` claim                                                                                                   |
+| `scope`     | `email profile`               | Space-separated; URL-encode space as `+`                                                                               |
+| `client_id` | `test-client`                 | Sets the `client_id` claim                                                                                             |
+| `domain`    | (omitted)                     | Mints `<prefix>_domain` (default `extra_domain`) — omit to test fail-closed behavior                                   |
+| `sa`        | (omitted)                     | Mints `<prefix>_service_account` (default `extra_service_account`) — omit to test fail-closed                          |
+| `project`   | (omitted)                     | Mints `<prefix>_project` (default `extra_project`) — omit to test fail-closed                                          |
+| `ttl`       | `300` (seconds)               | `exp` is `iat + ttl`                                                                                                   |
 
 `iss` is implicit — it's whichever port you call (`http://127.0.0.1:9001` for auth-a, `9002` for auth-b).
+
+`<prefix>` is set process-wide via the `JWT_PRIVATE_CLAIM_PREFIX` env
+var (default `extra`); the resource server in `../main.go` must run with
+the same value, otherwise its decoder lands these keys in
+`Claims.Extras` instead of the typed fields and every `AccessRule`
+covering `Domain` / `ServiceAccount` / `Project` fails closed. The
+testissuer's startup banner echoes the resolved prefix so you can spot
+mismatches at a glance.
 
 ## Test scenarios
 

@@ -72,13 +72,29 @@ sequenceDiagram
 
 ## Environment Variables
 
-| Variable              | Required | Description                                                                                                          |
-| --------------------- | -------- | -------------------------------------------------------------------------------------------------------------------- |
-| `ISSUER_URL`          | Yes      | AuthGate issuer URL — must match the `iss` claim and the `issuer` field of the discovery document                    |
-| `EXPECTED_AUDIENCE`   | \*       | Required value in the `aud` claim. Mandatory unless `SKIP_AUDIENCE_CHECK=1` is set.                                  |
-| `SKIP_AUDIENCE_CHECK` | \*       | Set to `1` to explicitly disable `aud` enforcement. Only use for issuers that don't emit `aud` on access tokens.     |
+| Variable                   | Required | Description                                                                                                                                                                                              |
+| -------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ISSUER_URL`               | Yes      | AuthGate issuer URL — must match the `iss` claim and the `issuer` field of the discovery document                                                                                                        |
+| `EXPECTED_AUDIENCE`        | \*       | Required value in the `aud` claim. Mandatory unless `SKIP_AUDIENCE_CHECK=1` is set.                                                                                                                      |
+| `SKIP_AUDIENCE_CHECK`      | \*       | Set to `1` to explicitly disable `aud` enforcement. Only use for issuers that don't emit `aud` on access tokens.                                                                                         |
+| `JWT_PRIVATE_CLAIM_PREFIX` | No       | Overrides the SDK default of `extra` for the server-attested claim prefix. Must agree byte-for-byte with the AuthGate server's `JWT_PRIVATE_CLAIM_PREFIX`. Leave unset to use the default — see below.   |
 
 \* Exactly one of `EXPECTED_AUDIENCE` or `SKIP_AUDIENCE_CHECK=1` must be set — the server refuses to start otherwise, so a forgotten audience never silently disables validation.
+
+## Server-attested private claims and the prefix
+
+AuthGate emits up to three optional server-attested claims on a token —
+`Domain`, `Project`, and `ServiceAccount` — under a configurable prefix
+(default `extra`). The wire-level JWT keys are therefore `extra_domain`,
+`extra_project`, and `extra_service_account`. The SDK reads them out of
+the box; if your AuthGate deployment overrides `JWT_PRIVATE_CLAIM_PREFIX`,
+set the same value here and the SDK will read `<prefix>_domain` etc.
+
+Caller-supplied claims (anything else the issuer puts in the payload —
+for example a custom `tenant` value) surface on `info.Claims.Extras` and
+are accessible via `info.Extra("tenant")`. They are **not** part of the
+`AccessRule` allowlist surface; if you need to gate on a caller-supplied
+dimension, read it from `Extras` and check it inside the handler.
 
 ## Usage
 
@@ -112,7 +128,7 @@ These rules live in `main()` as `jwksauth.AccessRule{...}` literals. The middlew
 
 - **Empty slice = "don't check this dimension"** — let routes opt in.
 - **AND-combined** — token must pass every configured allowlist.
-- **Fail-closed on missing claim** — if a route requires `Domains: []string{"oa"}` and the token has no `domain` claim, the empty string isn't `"oa"` → reject.
+- **Fail-closed on missing claim** — if a route requires `Domains: []string{"oa"}` and the token has no `extra_domain` claim (under the default prefix), the empty string isn't `"oa"` → reject. The same holds when the configured prefix and the token's wire-level prefix disagree.
 - **`Domain` compares case-insensitively** — allowlist values must be lower-case, the token side is folded automatically.
 - **`service_account` / `project` compared exactly** — opaque identifiers, no normalization.
 - **Reject reasons go to server log only** — clients see a generic `401 invalid_token` so allowlists aren't inferable from outside.
@@ -173,7 +189,7 @@ curl http://localhost:8088/health
    - `iss` equals `ISSUER_URL`
    - `aud` contains `EXPECTED_AUDIENCE`, or `SKIP_AUDIENCE_CHECK=1` is explicitly set (fail-closed default — the server refuses to start with `aud` validation silently disabled)
    - `exp` is strict; `nbf` has a built-in 5 min leeway
-4. **Per-route allowlists** — `jwksauth.AccessRule` enforces required scopes plus `domain` / `service_account` / `project` allowlists. Empty slice = "don't check"; non-empty = fail-closed. Handlers may also call `info.HasScope("profile")` for finer-grained checks.
+4. **Per-route allowlists** — `jwksauth.AccessRule` enforces required scopes plus `Domain` / `ServiceAccount` / `Project` allowlists, read from the prefixed wire-level claims (`extra_domain` etc. by default, `<JWT_PRIVATE_CLAIM_PREFIX>_*` if overridden). Empty slice = "don't check"; non-empty = fail-closed. Handlers may also call `info.HasScope("profile")` for finer-grained checks.
 5. **RFC 6750 errors** — `401 invalid_token` / `403 insufficient_scope` responses include a proper `WWW-Authenticate` header.
 
 ## Example Responses
@@ -191,7 +207,7 @@ curl http://localhost:8088/health
 }
 ```
 
-`domain` is `""` if AuthGate did not emit a `domain` claim on the token.
+`domain` is `""` if AuthGate did not emit an `extra_domain` claim on the token (or `<JWT_PRIVATE_CLAIM_PREFIX>_domain` under a custom prefix). The JSON field name in the response is handler-controlled — `main.go` chooses to surface it as `domain` regardless of the wire-level key.
 
 **`GET /api/data`** (valid token with `email` scope):
 
@@ -202,7 +218,7 @@ curl http://localhost:8088/health
 }
 ```
 
-**`GET /api/admin`** (token with `domain=oa`, `service_account=sync-bot@oa.local`, `project=admin-tools`):
+**`GET /api/admin`** (token with `extra_domain=oa`, `extra_service_account=sync-bot@oa.local`, `extra_project=admin-tools`):
 
 ```json
 {

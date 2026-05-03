@@ -52,6 +52,11 @@ func main() {
 	expectedAudience := strings.TrimSpace(os.Getenv("EXPECTED_AUDIENCE"))
 	skipAudience := strings.TrimSpace(os.Getenv("SKIP_AUDIENCE_CHECK")) == "1"
 	rawIssuerDomains := strings.TrimSpace(os.Getenv("ISSUER_DOMAINS"))
+	// Optional override of the AuthGate server's JWT_PRIVATE_CLAIM_PREFIX
+	// (default "extra"). Applied uniformly to every configured issuer; if
+	// your fleet runs different prefixes per issuer you need one Verifier
+	// per prefix, not a single MultiVerifier.
+	privateClaimPrefix := strings.TrimSpace(os.Getenv("JWT_PRIVATE_CLAIM_PREFIX"))
 
 	if rawIssuers == "" {
 		log.Fatal("Set TRUSTED_ISSUERS to a comma-separated list of issuer URLs")
@@ -64,7 +69,7 @@ func main() {
 			"or SKIP_AUDIENCE_CHECK=1 to opt out")
 	}
 
-	mv, err := newMultiVerifier(rawIssuers, expectedAudience, skipAudience)
+	mv, err := newMultiVerifier(rawIssuers, expectedAudience, skipAudience, privateClaimPrefix)
 	if err != nil {
 		log.Fatalf("build verifiers: %v", err)
 	}
@@ -98,11 +103,11 @@ func main() {
 		MaxHeaderBytes: 8 << 10,
 	}
 
-	logStartup(mv, expectedAudience)
+	logStartup(mv, expectedAudience, privateClaimPrefix)
 	log.Fatal(srv.ListenAndServe())
 }
 
-func newMultiVerifier(rawIssuers, audience string, skipAudience bool) (*jwksauth.MultiVerifier, error) {
+func newMultiVerifier(rawIssuers, audience string, skipAudience bool, privateClaimPrefix string) (*jwksauth.MultiVerifier, error) {
 	issuers, err := parseIssuers(rawIssuers)
 	if err != nil {
 		return nil, err
@@ -111,10 +116,14 @@ func newMultiVerifier(rawIssuers, audience string, skipAudience bool) (*jwksauth
 	// not multiply startup time by N. The SDK runs discovery concurrently.
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
+	// WithPrivateClaimPrefix("") is documented as a no-op that leaves the
+	// SDK default in place, so passing the env value through unconditionally
+	// is safe.
+	opts := []jwksauth.Option{jwksauth.WithPrivateClaimPrefix(privateClaimPrefix)}
 	if skipAudience {
-		return jwksauth.NewMultiVerifierSkipAudience(ctx, issuers)
+		return jwksauth.NewMultiVerifierSkipAudience(ctx, issuers, opts...)
 	}
-	return jwksauth.NewMultiVerifier(ctx, issuers, audience)
+	return jwksauth.NewMultiVerifier(ctx, issuers, audience, opts...)
 }
 
 // parseIssuers splits a comma-separated TRUSTED_ISSUERS value into trimmed,
@@ -184,7 +193,7 @@ func isLoopbackHost(host string) bool {
 	return ip != nil && ip.IsLoopback()
 }
 
-func logStartup(mv *jwksauth.MultiVerifier, audience string) {
+func logStartup(mv *jwksauth.MultiVerifier, audience, privateClaimPrefix string) {
 	domains := mv.IssuerDomains()
 	issuers := mv.Issuers()
 	log.Printf("Trusted issuers (%d):", len(issuers))
@@ -199,6 +208,11 @@ func logStartup(mv *jwksauth.MultiVerifier, audience string) {
 		log.Printf("Audience: %s (applied to all issuers)", audience)
 	} else {
 		log.Println("Audience: DISABLED (SKIP_AUDIENCE_CHECK=1)")
+	}
+	if privateClaimPrefix != "" {
+		log.Printf("Private claim prefix: %q (overrides SDK default; applied to all issuers)", privateClaimPrefix)
+	} else {
+		log.Println("Private claim prefix: \"extra\" (SDK default; applied to all issuers)")
 	}
 	log.Println("Listening on :8089 — multi-issuer offline JWKS validation")
 }

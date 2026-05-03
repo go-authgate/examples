@@ -52,6 +52,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -61,6 +62,10 @@ import (
 	"github.com/go-jose/go-jose/v4/jwt"
 )
 
+// defaultPrivateClaimPrefix matches the AuthGate server and SDK default
+// for JWT_PRIVATE_CLAIM_PREFIX.
+const defaultPrivateClaimPrefix = "extra"
+
 type issuer struct {
 	name    string
 	port    int
@@ -68,9 +73,17 @@ type issuer struct {
 	key     *rsa.PrivateKey
 	kid     string
 	signer  jose.Signer
+	// Pre-resolved server-attested claim keys ("<prefix>_domain" etc.).
+	// The resource server consuming these tokens must be configured with
+	// the same JWT_PRIVATE_CLAIM_PREFIX, otherwise its decoder lands these
+	// keys in Claims.Extras instead of the typed Domain/ServiceAccount/
+	// Project fields and any AccessRule covering them fails closed.
+	domainKey         string
+	serviceAccountKey string
+	projectKey        string
 }
 
-func newIssuer(name string, port int) (*issuer, error) {
+func newIssuer(name string, port int, privateClaimPrefix string) (*issuer, error) {
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		return nil, fmt.Errorf("gen key for %s: %w", name, err)
@@ -94,12 +107,15 @@ func newIssuer(name string, port int) (*issuer, error) {
 		return nil, fmt.Errorf("new signer for %s: %w", name, err)
 	}
 	return &issuer{
-		name:    name,
-		port:    port,
-		baseURL: fmt.Sprintf("http://127.0.0.1:%d", port),
-		key:     key,
-		kid:     kid,
-		signer:  signer,
+		name:              name,
+		port:              port,
+		baseURL:           fmt.Sprintf("http://127.0.0.1:%d", port),
+		key:               key,
+		kid:               kid,
+		signer:            signer,
+		domainKey:         privateClaimPrefix + "_domain",
+		serviceAccountKey: privateClaimPrefix + "_service_account",
+		projectKey:        privateClaimPrefix + "_project",
 	}, nil
 }
 
@@ -162,17 +178,17 @@ func (i *issuer) sign(w http.ResponseWriter, r *http.Request) {
 		"client_id": clientID,
 		"scope":     scope,
 	}
-	// Custom claims are only set when explicitly requested, so you can mint
-	// "missing claim" tokens to verify the resource server's fail-closed
-	// behavior on routes that require them.
+	// Server-attested claims are only set when explicitly requested, so you
+	// can mint "missing claim" tokens to exercise the resource server's
+	// fail-closed behavior on routes that require them.
 	if domain != "" {
-		claims["domain"] = domain
+		claims[i.domainKey] = domain
 	}
 	if sa != "" {
-		claims["service_account"] = sa
+		claims[i.serviceAccountKey] = sa
 	}
 	if project != "" {
-		claims["project"] = project
+		claims[i.projectKey] = project
 	}
 
 	token, err := jwt.Signed(i.signer).Claims(claims).Serialize()
@@ -203,6 +219,11 @@ func def(v, d string) string {
 }
 
 func main() {
+	// JWT_PRIVATE_CLAIM_PREFIX must agree byte-for-byte with the resource
+	// server's matching env var; an empty / whitespace-only value falls
+	// back to the SDK default.
+	privateClaimPrefix := def(strings.TrimSpace(os.Getenv("JWT_PRIVATE_CLAIM_PREFIX")), defaultPrivateClaimPrefix)
+
 	configs := []struct {
 		name string
 		port int
@@ -219,7 +240,7 @@ func main() {
 	}
 	bounds := make([]bound, 0, len(configs))
 	for _, c := range configs {
-		is, err := newIssuer(c.name, c.port)
+		is, err := newIssuer(c.name, c.port, privateClaimPrefix)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -239,10 +260,18 @@ func main() {
 	for _, b := range bounds {
 		urls = append(urls, b.is.baseURL)
 	}
+	log.Printf("Private claim prefix: %[1]q (mints %[1]s_domain / %[1]s_service_account / %[1]s_project)",
+		privateClaimPrefix)
 	log.Println("─── resource server env (copy-paste) ──────────────────────────")
 	log.Printf("TRUSTED_ISSUERS=%s", strings.Join(urls, ","))
 	log.Printf("EXPECTED_AUDIENCE=https://api.example.com")
 	log.Printf("ISSUER_DOMAINS='%s=oa,hwrd;%s=swrd,cdomain'", urls[0], urls[1])
+	// Echo the prefix in the env block only when it's not the default, so
+	// the copy-paste line stays minimal in the common case while still
+	// reminding the operator to keep both ends in sync under a custom prefix.
+	if privateClaimPrefix != defaultPrivateClaimPrefix {
+		log.Printf("JWT_PRIVATE_CLAIM_PREFIX=%s", privateClaimPrefix)
+	}
 	log.Println("───────────────────────────────────────────────────────────────")
 
 	var wg sync.WaitGroup

@@ -50,6 +50,11 @@ func main() {
 	// issuers whose access tokens don't carry `aud` — so accidental deploys
 	// never silently disable audience validation.
 	skipAudience := strings.TrimSpace(os.Getenv("SKIP_AUDIENCE_CHECK")) == "1"
+	// Optional override of the AuthGate server's JWT_PRIVATE_CLAIM_PREFIX
+	// (default "extra"). Server and SDK must agree byte-for-byte; reading
+	// with the wrong prefix yields empty Domain/Project/ServiceAccount and
+	// the AccessRule below fails closed.
+	privateClaimPrefix := strings.TrimSpace(os.Getenv("JWT_PRIVATE_CLAIM_PREFIX"))
 	if issuerURL == "" {
 		log.Fatal("Set ISSUER_URL (e.g. https://auth.example.com)")
 	}
@@ -61,7 +66,7 @@ func main() {
 			"or SKIP_AUDIENCE_CHECK=1 to opt out (some issuers don't emit aud on access tokens)")
 	}
 
-	v, err := newVerifier(issuerURL, expectedAudience, skipAudience)
+	v, err := newVerifier(issuerURL, expectedAudience, skipAudience, privateClaimPrefix)
 	if err != nil {
 		log.Fatalf("build verifier: %v", err)
 	}
@@ -103,18 +108,27 @@ func main() {
 	} else {
 		log.Println("Audience: DISABLED (SKIP_AUDIENCE_CHECK=1) — tokens accepted for any audience")
 	}
+	if privateClaimPrefix != "" {
+		log.Printf("Private claim prefix: %q (overrides SDK default)", privateClaimPrefix)
+	} else {
+		log.Println("Private claim prefix: \"extra\" (SDK default)")
+	}
 	log.Println("Listening on :8088 — offline JWKS validation (no AuthGate round-trip per request)")
 	log.Fatal(srv.ListenAndServe())
 }
 
-func newVerifier(issuerURL, audience string, skipAudience bool) (*jwksauth.Verifier, error) {
+func newVerifier(issuerURL, audience string, skipAudience bool, privateClaimPrefix string) (*jwksauth.Verifier, error) {
 	// Bound discovery so a stalled issuer doesn't hang startup forever.
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	// WithPrivateClaimPrefix("") is documented as a no-op that leaves the
+	// SDK default in place, so passing the env value through unconditionally
+	// is safe.
+	opts := []jwksauth.Option{jwksauth.WithPrivateClaimPrefix(privateClaimPrefix)}
 	if skipAudience {
-		return jwksauth.NewVerifierSkipAudience(ctx, issuerURL)
+		return jwksauth.NewVerifierSkipAudience(ctx, issuerURL, opts...)
 	}
-	return jwksauth.NewVerifier(ctx, issuerURL, audience)
+	return jwksauth.NewVerifier(ctx, issuerURL, audience, opts...)
 }
 
 func profileHandler(w http.ResponseWriter, r *http.Request) {
